@@ -2,10 +2,14 @@ import logging
 from typing import Optional, List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
+from app.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/compare", tags=["compare"])
+
+# Initialize cache service
+cache_service = CacheService(default_ttl=3600)  # 1 hour TTL
 
 
 # Request Schemas
@@ -54,12 +58,8 @@ class CompareResponse(BaseModel):
     sources: Sources
 
 
-@router.post("", response_model=CompareResponse)
-async def compare(request: CompareRequest):
-    """Compare endpoint with mock data"""
-    logger.info(f"Compare endpoint called: {request.team1} vs {request.team2} ({request.sport})")
-    
-    # Mock data
+def _generate_mock_response(request: CompareRequest) -> CompareResponse:
+    """Generate mock response data"""
     return CompareResponse(
         team1=TeamAnalysis(
             pros=[
@@ -104,4 +104,40 @@ async def compare(request: CompareRequest):
             ]
         )
     )
+
+
+@router.post("", response_model=CompareResponse)
+async def compare(request: CompareRequest):
+    """Compare endpoint with caching"""
+    logger.info(f"Compare endpoint called: {request.team1} vs {request.team2} ({request.sport})")
+    
+    # Extract date from context if available
+    date = request.context.gameDate if request.context else None
+    
+    # Check cache
+    cached_response = cache_service.get(
+        sport=request.sport,
+        team1=request.team1,
+        team2=request.team2,
+        date=date
+    )
+    
+    if cached_response is not None:
+        logger.info("Returning cached response")
+        return cached_response
+    
+    # Generate mock data (simulating external call)
+    logger.info("Cache miss - generating new response")
+    response = _generate_mock_response(request)
+    
+    # Cache the response
+    cache_service.set(
+        sport=request.sport,
+        team1=request.team1,
+        team2=request.team2,
+        value=response,
+        date=date
+    )
+    
+    return response
 
