@@ -1,6 +1,6 @@
 import logging
-from typing import Optional, List
-from fastapi import APIRouter
+from typing import Optional, List, Dict, Any
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from ..services.cache_service import CacheService
 from ..services.scoring_service import ScoringService
@@ -68,7 +68,7 @@ class CompareResponse(BaseModel):
     sources: Sources
 
 
-def _format_stats_summary(stats: dict) -> str:
+def _format_stats_summary(stats: Dict[str, Any]) -> str:
     """Format stats dictionary into human-readable summary"""
     if not stats or stats.get('data_source') == 'placeholder':
         return "Stats data not available"
@@ -92,61 +92,109 @@ def _format_stats_summary(stats: dict) -> str:
 
 
 async def _generate_analysis(request: CompareRequest) -> CompareResponse:
-    """Generate analysis using all services"""
+    """
+    Generate analysis using all services
+    
+    Args:
+        request: CompareRequest with team names and optional context
+        
+    Returns:
+        CompareResponse with complete analysis
+        
+    Raises:
+        Exception: If critical errors occur during analysis
+    """
     team1_name = request.team1
     team2_name = request.team2
     injuries1 = request.context.injuries if request.context else None
     injuries2 = request.context.injuries if request.context else None  # Could be different in future
     
-    # Get stats from BasketballProvider
-    logger.info(f"Fetching stats for {team1_name} and {team2_name}")
-    team1_stats = basketball_provider.get_team_stats_summary(team1_name)
-    team2_stats = basketball_provider.get_team_stats_summary(team2_name)
+    try:
+        # Get stats from BasketballProvider
+        logger.info("Fetching stats for %s and %s", team1_name, team2_name)
+        team1_stats = basketball_provider.get_team_stats_summary(team1_name)
+        team2_stats = basketball_provider.get_team_stats_summary(team2_name)
+        logger.debug("Stats retrieved: team1=%s, team2=%s", team1_stats.get('data_source'), team2_stats.get('data_source'))
+    except Exception as e:
+        logger.error("Error fetching stats: %s", e, exc_info=True)
+        # Use placeholder stats as fallback
+        team1_stats = basketball_provider._get_placeholder_stats(team1_name)
+        team2_stats = basketball_provider._get_placeholder_stats(team2_name)
     
-    # Get Reddit data
-    logger.info(f"Fetching Reddit data for {team1_name} and {team2_name}")
-    team1_reddit_posts = reddit_service.fetch_team_posts(team1_name, limit=10, include_comments=True)
-    team2_reddit_posts = reddit_service.fetch_team_posts(team2_name, limit=10, include_comments=True)
+    try:
+        # Get Reddit data
+        logger.info("Fetching Reddit data for %s and %s", team1_name, team2_name)
+        team1_reddit_posts = reddit_service.fetch_team_posts(team1_name, limit=10, include_comments=True)
+        team2_reddit_posts = reddit_service.fetch_team_posts(team2_name, limit=10, include_comments=True)
+        logger.debug("Reddit posts retrieved: team1=%d, team2=%d", len(team1_reddit_posts), len(team2_reddit_posts))
+    except Exception as e:
+        logger.warning("Error fetching Reddit data: %s, continuing without Reddit data", e)
+        team1_reddit_posts = []
+        team2_reddit_posts = []
     
-    # Analyze sentiment
-    team1_sentiment = sentiment_service.analyze_sentiment(team1_reddit_posts)
-    team2_sentiment = sentiment_service.analyze_sentiment(team2_reddit_posts)
+    try:
+        # Analyze sentiment
+        team1_sentiment = sentiment_service.analyze_sentiment(team1_reddit_posts)
+        team2_sentiment = sentiment_service.analyze_sentiment(team2_reddit_posts)
+    except Exception as e:
+        logger.warning("Error analyzing sentiment: %s, using default sentiment", e)
+        team1_sentiment = "Sentiment analysis unavailable"
+        team2_sentiment = "Sentiment analysis unavailable"
     
-    # Generate pros/cons
-    team1_proscons = proscons_service.generate_pros_cons(
-        team1_stats,
-        team1_sentiment,
-        injuries1
-    )
-    team2_proscons = proscons_service.generate_pros_cons(
-        team2_stats,
-        team2_sentiment,
-        injuries2
-    )
+    try:
+        # Generate pros/cons
+        team1_proscons = proscons_service.generate_pros_cons(
+            team1_stats,
+            team1_sentiment,
+            injuries1
+        )
+        team2_proscons = proscons_service.generate_pros_cons(
+            team2_stats,
+            team2_sentiment,
+            injuries2
+        )
+    except Exception as e:
+        logger.error("Error generating pros/cons: %s", e, exc_info=True)
+        # Fallback to generic pros/cons
+        team1_proscons = {'pros': ['Analysis available'], 'cons': ['Limited data']}
+        team2_proscons = {'pros': ['Analysis available'], 'cons': ['Limited data']}
     
-    # Calculate matchup
-    matchup_result = scoring_service.calculate_matchup(
-        team1_name=team1_name,
-        team2_name=team2_name,
-        team1_stats=team1_stats,
-        team2_stats=team2_stats,
-        team1_sentiment=team1_sentiment,
-        team2_sentiment=team2_sentiment,
-        team1_injuries=injuries1,
-        team2_injuries=injuries2
-    )
+    try:
+        # Calculate matchup
+        matchup_result = scoring_service.calculate_matchup(
+            team1_name=team1_name,
+            team2_name=team2_name,
+            team1_stats=team1_stats,
+            team2_stats=team2_stats,
+            team1_sentiment=team1_sentiment,
+            team2_sentiment=team2_sentiment,
+            team1_injuries=injuries1,
+            team2_injuries=injuries2
+        )
+    except Exception as e:
+        logger.error("Error calculating matchup: %s", e, exc_info=True)
+        # Fallback matchup
+        matchup_result = {
+            'predicted_winner': team1_name,
+            'win_probability': 0.5,
+            'score_breakdown': f"Predicted final score: {team1_name} 110-110 {team2_name}",
+            'confidence_label': 'Low confidence'
+        }
     
     # Format stats summaries
     team1_stats_summary = _format_stats_summary(team1_stats)
     team2_stats_summary = _format_stats_summary(team2_stats)
     
     # Build sources
-    reddit_sources = []
-    if team1_reddit_posts:
-        reddit_sources.extend([post.get('url', '') for post in team1_reddit_posts[:3] if post.get('url')])
-    if team2_reddit_posts:
-        reddit_sources.extend([post.get('url', '') for post in team2_reddit_posts[:3] if post.get('url')])
-    reddit_sources = list(set(reddit_sources))[:5]  # Deduplicate and limit
+    reddit_sources: List[str] = []
+    try:
+        if team1_reddit_posts:
+            reddit_sources.extend([post.get('url', '') for post in team1_reddit_posts[:3] if post.get('url')])
+        if team2_reddit_posts:
+            reddit_sources.extend([post.get('url', '') for post in team2_reddit_posts[:3] if post.get('url')])
+        reddit_sources = list(set(reddit_sources))[:5]  # Deduplicate and limit
+    except Exception as e:
+        logger.warning("Error building Reddit sources: %s", e)
     
     stats_sources = [
         f"NBA API stats for {team1_name}",
@@ -180,37 +228,70 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
 
 
 @router.post("", response_model=CompareResponse)
-async def compare(request: CompareRequest):
-    """Compare endpoint with caching and full analysis"""
-    logger.info(f"Compare endpoint called: {request.team1} vs {request.team2} ({request.sport})")
+async def compare(request: CompareRequest) -> CompareResponse:
+    """
+    Compare endpoint with caching and full analysis
+    
+    Args:
+        request: CompareRequest with team names and optional context
+        
+    Returns:
+        CompareResponse with complete team analysis
+        
+    Raises:
+        HTTPException: If comparison fails
+    """
+    logger.info("Compare endpoint called: %s vs %s (%s)", request.team1, request.team2, request.sport)
+    
+    # Validate sport (currently only basketball supported)
+    if request.sport.lower() != "basketball":
+        logger.warning("Unsupported sport requested: %s", request.sport)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Sport '{request.sport}' is not supported. Currently only 'basketball' is supported."
+        )
     
     # Extract date from context if available
     date = request.context.gameDate if request.context else None
     
-    # Check cache
-    cached_response = cache_service.get(
-        sport=request.sport,
-        team1=request.team1,
-        team2=request.team2,
-        date=date
-    )
+    try:
+        # Check cache
+        cached_response = cache_service.get(
+            sport=request.sport,
+            team1=request.team1,
+            team2=request.team2,
+            date=date
+        )
+        
+        if cached_response is not None:
+            logger.info("Returning cached response for %s vs %s", request.team1, request.team2)
+            return cached_response
+    except Exception as e:
+        logger.warning("Cache check failed: %s, continuing without cache", e)
     
-    if cached_response is not None:
-        logger.info("Returning cached response")
-        return cached_response
-    
-    # Generate analysis using all services
-    logger.info("Cache miss - generating new analysis")
-    response = await _generate_analysis(request)
-    
-    # Cache the response
-    cache_service.set(
-        sport=request.sport,
-        team1=request.team1,
-        team2=request.team2,
-        value=response,
-        date=date
-    )
-    
-    return response
+    try:
+        # Generate analysis using all services
+        logger.info("Cache miss - generating new analysis for %s vs %s", request.team1, request.team2)
+        response = await _generate_analysis(request)
+        
+        # Cache the response
+        try:
+            cache_service.set(
+                sport=request.sport,
+                team1=request.team1,
+                team2=request.team2,
+                value=response,
+                date=date
+            )
+        except Exception as e:
+            logger.warning("Failed to cache response: %s", e)
+        
+        return response
+        
+    except Exception as e:
+        logger.error("Error generating comparison: %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to generate comparison: {str(e)}"
+        )
 
