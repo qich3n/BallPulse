@@ -70,13 +70,14 @@ class CompareResponse(BaseModel):
 
 def _format_stats_summary(stats: Dict[str, Any]) -> str:
     """Format stats dictionary into human-readable summary"""
-    if not stats or stats.get('data_source') == 'placeholder':
+    if not stats:
         return "Stats data not available"
     
     shooting_pct = stats.get('shooting_pct', 0.45)
     rebounding_avg = stats.get('rebounding_avg', 42.0)
     turnovers_avg = stats.get('turnovers_avg', 14.0)
     net_rating_proxy = stats.get('net_rating_proxy', 0.0)
+    data_source = stats.get('data_source', 'unknown')
     
     parts = [
         f"Averaging {rebounding_avg:.1f} rebounds per game",
@@ -88,7 +89,13 @@ def _format_stats_summary(stats: Dict[str, Any]) -> str:
         sign = "+" if net_rating_proxy > 0 else ""
         parts.append(f"{sign}{net_rating_proxy:.1f} point differential")
     
-    return ", ".join(parts)
+    summary = ", ".join(parts)
+    
+    # Add note if using placeholder/estimated data
+    if data_source == 'placeholder':
+        summary += " (estimated/placeholder data - actual stats unavailable)"
+    
+    return summary
 
 
 async def _generate_analysis(request: CompareRequest) -> CompareResponse:

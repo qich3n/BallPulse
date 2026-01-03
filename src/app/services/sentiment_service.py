@@ -127,13 +127,13 @@ class SentimentService:
             Formatted sentiment summary string
         """
         if not reddit_posts:
-            return "No Reddit data available for sentiment analysis."
+            return "Sentiment analysis unavailable - no Reddit data found for this team. This may be due to the team name not matching a known subreddit or Reddit API being temporarily unavailable."
         
         # Extract all text
         texts = self._extract_text_from_reddit_data(reddit_posts)
         
         if not texts:
-            return "No text content found in Reddit data."
+            return "Sentiment analysis unavailable - no text content found in Reddit data."
         
         # Analyze sentiment for each text
         sentiment_scores = []
