@@ -1,6 +1,6 @@
 import logging
 from fastapi import FastAPI
-from app.routes import health, compare
+from .routes import health, compare
 
 # Configure logging
 logging.basicConfig(

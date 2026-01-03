@@ -2,7 +2,7 @@ import logging
 from typing import Optional, List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from app.services.cache_service import CacheService
+from ..services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 

@@ -73,11 +73,20 @@ The `.env` file is optional. The application will work without it, but you can c
 
 ### 6. Run the Application
 
-Start the FastAPI development server:
+Start the FastAPI development server. You have two options:
 
+**Option 1: Run from project root (recommended)**
 ```bash
 uvicorn src.app.main:app --reload
 ```
+
+**Option 2: Add src to PYTHONPATH and run**
+```bash
+export PYTHONPATH="${PYTHONPATH}:$(pwd)/src"
+uvicorn app.main:app --reload
+```
+
+The `--reload` flag enables auto-reload on code changes, which is useful during development.
 
 The `--reload` flag enables auto-reload on code changes, which is useful during development.
 
