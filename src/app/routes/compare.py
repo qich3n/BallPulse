@@ -3,13 +3,23 @@ from typing import Optional, List
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 from ..services.cache_service import CacheService
+from ..services.scoring_service import ScoringService
+from ..services.proscons_service import ProsConsService
+from ..services.sentiment_service import SentimentService
+from ..services.reddit_service import RedditService
+from ..providers.basketball_provider import BasketballProvider
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/compare", tags=["compare"])
 
-# Initialize cache service
+# Initialize services
 cache_service = CacheService(default_ttl=3600)  # 1 hour TTL
+scoring_service = ScoringService()
+proscons_service = ProsConsService()
+sentiment_service = SentimentService()
+reddit_service = RedditService(cache_service=cache_service)
+basketball_provider = BasketballProvider()
 
 
 # Request Schemas
@@ -58,57 +68,120 @@ class CompareResponse(BaseModel):
     sources: Sources
 
 
-def _generate_mock_response(request: CompareRequest) -> CompareResponse:
-    """Generate mock response data"""
+def _format_stats_summary(stats: dict) -> str:
+    """Format stats dictionary into human-readable summary"""
+    if not stats or stats.get('data_source') == 'placeholder':
+        return "Stats data not available"
+    
+    shooting_pct = stats.get('shooting_pct', 0.45)
+    rebounding_avg = stats.get('rebounding_avg', 42.0)
+    turnovers_avg = stats.get('turnovers_avg', 14.0)
+    net_rating_proxy = stats.get('net_rating_proxy', 0.0)
+    
+    parts = [
+        f"Averaging {rebounding_avg:.1f} rebounds per game",
+        f"{shooting_pct:.1%} field goal percentage",
+        f"{turnovers_avg:.1f} turnovers per game"
+    ]
+    
+    if net_rating_proxy != 0:
+        sign = "+" if net_rating_proxy > 0 else ""
+        parts.append(f"{sign}{net_rating_proxy:.1f} point differential")
+    
+    return ", ".join(parts)
+
+
+async def _generate_analysis(request: CompareRequest) -> CompareResponse:
+    """Generate analysis using all services"""
+    team1_name = request.team1
+    team2_name = request.team2
+    injuries1 = request.context.injuries if request.context else None
+    injuries2 = request.context.injuries if request.context else None  # Could be different in future
+    
+    # Get stats from BasketballProvider
+    logger.info(f"Fetching stats for {team1_name} and {team2_name}")
+    team1_stats = basketball_provider.get_team_stats_summary(team1_name)
+    team2_stats = basketball_provider.get_team_stats_summary(team2_name)
+    
+    # Get Reddit data
+    logger.info(f"Fetching Reddit data for {team1_name} and {team2_name}")
+    team1_reddit_posts = reddit_service.fetch_team_posts(team1_name, limit=10, include_comments=True)
+    team2_reddit_posts = reddit_service.fetch_team_posts(team2_name, limit=10, include_comments=True)
+    
+    # Analyze sentiment
+    team1_sentiment = sentiment_service.analyze_sentiment(team1_reddit_posts)
+    team2_sentiment = sentiment_service.analyze_sentiment(team2_reddit_posts)
+    
+    # Generate pros/cons
+    team1_proscons = proscons_service.generate_pros_cons(
+        team1_stats,
+        team1_sentiment,
+        injuries1
+    )
+    team2_proscons = proscons_service.generate_pros_cons(
+        team2_stats,
+        team2_sentiment,
+        injuries2
+    )
+    
+    # Calculate matchup
+    matchup_result = scoring_service.calculate_matchup(
+        team1_name=team1_name,
+        team2_name=team2_name,
+        team1_stats=team1_stats,
+        team2_stats=team2_stats,
+        team1_sentiment=team1_sentiment,
+        team2_sentiment=team2_sentiment,
+        team1_injuries=injuries1,
+        team2_injuries=injuries2
+    )
+    
+    # Format stats summaries
+    team1_stats_summary = _format_stats_summary(team1_stats)
+    team2_stats_summary = _format_stats_summary(team2_stats)
+    
+    # Build sources
+    reddit_sources = []
+    if team1_reddit_posts:
+        reddit_sources.extend([post.get('url', '') for post in team1_reddit_posts[:3] if post.get('url')])
+    if team2_reddit_posts:
+        reddit_sources.extend([post.get('url', '') for post in team2_reddit_posts[:3] if post.get('url')])
+    reddit_sources = list(set(reddit_sources))[:5]  # Deduplicate and limit
+    
+    stats_sources = [
+        f"NBA API stats for {team1_name}",
+        f"NBA API stats for {team2_name}"
+    ]
+    
     return CompareResponse(
         team1=TeamAnalysis(
-            pros=[
-                "Strong defensive rebounding",
-                "Excellent three-point shooting percentage",
-                "Depth in bench players"
-            ],
-            cons=[
-                "Turnover-prone in fast break situations",
-                "Weak free-throw shooting"
-            ],
-            stats_summary="Averaging 112.3 PPG with 45.2% FG, ranking 8th in the league",
-            sentiment_summary="Fan sentiment is generally positive with high confidence in playoff potential"
+            pros=team1_proscons['pros'],
+            cons=team1_proscons['cons'],
+            stats_summary=team1_stats_summary,
+            sentiment_summary=team1_sentiment
         ),
         team2=TeamAnalysis(
-            pros=[
-                "Elite perimeter defense",
-                "Strong home court advantage",
-                "Experienced playoff roster"
-            ],
-            cons=[
-                "Injury concerns with key players",
-                "Limited bench scoring production"
-            ],
-            stats_summary="Averaging 108.7 PPG with 43.8% FG, ranking 12th in the league",
-            sentiment_summary="Mixed sentiment with concerns about recent performance trends"
+            pros=team2_proscons['pros'],
+            cons=team2_proscons['cons'],
+            stats_summary=team2_stats_summary,
+            sentiment_summary=team2_sentiment
         ),
         matchup=MatchupAnalysis(
-            predicted_winner=request.team1,
-            win_probability=0.62,
-            score_breakdown="Predicted final score: 115-109",
-            confidence_label="High confidence"
+            predicted_winner=matchup_result['predicted_winner'],
+            win_probability=matchup_result['win_probability'],
+            score_breakdown=matchup_result['score_breakdown'],
+            confidence_label=matchup_result['confidence_label']
         ),
         sources=Sources(
-            reddit=[
-                "https://reddit.com/r/nba/comments/example1",
-                "https://reddit.com/r/nba/comments/example2"
-            ],
-            stats=[
-                "https://stats.example.com/game/12345",
-                "https://stats.example.com/teams/team1-vs-team2"
-            ]
+            reddit=reddit_sources if reddit_sources else ["No Reddit sources available"],
+            stats=stats_sources
         )
     )
 
 
 @router.post("", response_model=CompareResponse)
 async def compare(request: CompareRequest):
-    """Compare endpoint with caching"""
+    """Compare endpoint with caching and full analysis"""
     logger.info(f"Compare endpoint called: {request.team1} vs {request.team2} ({request.sport})")
     
     # Extract date from context if available
@@ -126,9 +199,9 @@ async def compare(request: CompareRequest):
         logger.info("Returning cached response")
         return cached_response
     
-    # Generate mock data (simulating external call)
-    logger.info("Cache miss - generating new response")
-    response = _generate_mock_response(request)
+    # Generate analysis using all services
+    logger.info("Cache miss - generating new analysis")
+    response = await _generate_analysis(request)
     
     # Cache the response
     cache_service.set(
