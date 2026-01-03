@@ -35,10 +35,11 @@ Run the application with uvicorn:
 uvicorn src.app.main:app --reload
 ```
 
-The API will be available at `http://localhost:8000`
+The application will be available at:
 
-- API documentation: `http://localhost:8000/docs`
-- Alternative docs: `http://localhost:8000/redoc`
+- **Frontend UI:** http://localhost:8000/
+- **API documentation:** http://localhost:8000/docs
+- **Alternative docs:** http://localhost:8000/redoc
 
 ## Running Tests
 

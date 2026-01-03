@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BallPulse - Team Comparison</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            padding: 20px;
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 32px;
+            font-size: 18px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        @media (max-width: 968px) {
+            .results {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .team-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid #e9ecef;
+        }
+
+        .team-card.winner {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .team-name {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #333;
+        }
+
+        .winner-badge {
+            background: #28a745;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .stats-section {
+            margin-bottom: 20px;
+        }
+
+        .stats-section h3 {
+            font-size: 1rem;
+            color: #666;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #666;
+            font-weight: 500;
+        }
+
+        .stat-value {
+            font-weight: 700;
+            color: #333;
+        }
+
+        .matchup-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-top: 30px;
+        }
+
+        .matchup-card h3 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .matchup-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .matchup-stats {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .matchup-stat {
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .matchup-stat-label {
+            font-size: 0.9rem;
+            opacity: 0.9;
+            margin-bottom: 5px;
+        }
+
+        .matchup-stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            border-radius: 20px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .context-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .context-section h4 {
+            margin-bottom: 10px;
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+        }
+
+        .context-input {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏀 BallPulse</h1>
+            <p>Compare NBA Teams and Get Detailed Analysis</p>
+        </div>
+
+        <div class="card">
+            <form id="compareForm">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="team1">Team 1</label>
+                        <input type="text" id="team1" name="team1" placeholder="e.g., Lakers" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="team2">Team 2</label>
+                        <input type="text" id="team2" name="team2" placeholder="e.g., Warriors" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="sport">Sport</label>
+                    <select id="sport" name="sport">
+                        <option value="basketball" selected>Basketball</option>
+                    </select>
+                </div>
+
+                <div class="context-section">
+                    <h4>Optional Context</h4>
+                    <div class="form-group context-input">
+                        <label for="gameDate">Game Date</label>
+                        <input type="date" id="gameDate" name="gameDate">
+                    </div>
+                    <div class="form-group context-input">
+                        <label for="injuries">Injuries (comma-separated)</label>
+                        <input type="text" id="injuries" name="injuries" placeholder="e.g., Player X - out, Player Y - questionable">
+                    </div>
+                </div>
+
+                <button type="submit" class="btn" id="submitBtn">Compare Teams</button>
+            </form>
+        </div>
+
+        <div id="errorContainer" class="hidden"></div>
+        <div id="loadingContainer" class="hidden">
+            <div class="card">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Analyzing teams...</p>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsContainer" class="hidden">
+            <div class="results">
+                <div id="team1Card" class="team-card"></div>
+                <div id="team2Card" class="team-card"></div>
+            </div>
+            <div id="matchupCard" class="matchup-card"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        
+        const form = document.getElementById('compareForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorContainer = document.getElementById('errorContainer');
+        const loadingContainer = document.getElementById('loadingContainer');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const team1Card = document.getElementById('team1Card');
+        const team2Card = document.getElementById('team2Card');
+        const matchupCard = document.getElementById('matchupCard');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            // Hide previous results and errors
+            errorContainer.classList.add('hidden');
+            resultsContainer.classList.add('hidden');
+            loadingContainer.classList.remove('hidden');
+            submitBtn.disabled = true;
+
+            // Get form data
+            const formData = new FormData(form);
+            const team1 = formData.get('team1').trim();
+            const team2 = formData.get('team2').trim();
+            const sport = formData.get('sport');
+            const gameDate = formData.get('gameDate');
+            const injuries = formData.get('injuries').trim();
+
+            // Build request body
+            const requestBody = {
+                team1: team1,
+                team2: team2,
+                sport: sport
+            };
+
+            if (gameDate || injuries) {
+                requestBody.context = {};
+                if (gameDate) requestBody.context.gameDate = gameDate;
+                if (injuries) {
+                    requestBody.context.injuries = injuries.split(',').map(i => i.trim()).filter(i => i);
+                }
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/compare`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+                    throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                displayResults(data, team1, team2);
+
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loadingContainer.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        });
+
+        function showError(message) {
+            errorContainer.innerHTML = `<div class="error">Error: ${message}</div>`;
+            errorContainer.classList.remove('hidden');
+        }
+
+        function displayResults(data, team1Name, team2Name) {
+            const predictedWinner = data.matchup.predicted_winner;
+            const isTeam1Winner = predictedWinner.toLowerCase() === team1Name.toLowerCase();
+
+            // Display Team 1
+            team1Card.innerHTML = `
+                <div class="team-header">
+                    <div class="team-name">${team1Name}</div>
+                    ${isTeam1Winner ? '<div class="winner-badge">Predicted Winner</div>' : ''}
+                </div>
+                <div class="stats-section">
+                    <h3>Strengths</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${data.team1.pros.map(pro => `<li style="padding: 8px 0; border-bottom: 1px solid #e9ecef;">✓ ${pro}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="stats-section">
+                    <h3>Weaknesses</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${data.team1.cons.map(con => `<li style="padding: 8px 0; border-bottom: 1px solid #e9ecef;">✗ ${con}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="stats-section">
+                    <h3>Stats Summary</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">Summary</span>
+                        <span class="stat-value"></span>
+                    </div>
+                    <p style="color: #666; margin-top: 10px;">${data.team1.stats_summary}</p>
+                </div>
+                <div class="stats-section">
+                    <h3>Sentiment</h3>
+                    <p style="color: #666; margin-top: 10px;">${data.team1.sentiment_summary}</p>
+                </div>
+            `;
+            if (isTeam1Winner) {
+                team1Card.classList.add('winner');
+            } else {
+                team1Card.classList.remove('winner');
+            }
+
+            // Display Team 2
+            team2Card.innerHTML = `
+                <div class="team-header">
+                    <div class="team-name">${team2Name}</div>
+                    ${!isTeam1Winner ? '<div class="winner-badge">Predicted Winner</div>' : ''}
+                </div>
+                <div class="stats-section">
+                    <h3>Strengths</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${data.team2.pros.map(pro => `<li style="padding: 8px 0; border-bottom: 1px solid #e9ecef;">✓ ${pro}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="stats-section">
+                    <h3>Weaknesses</h3>
+                    <ul style="list-style: none; padding: 0;">
+                        ${data.team2.cons.map(con => `<li style="padding: 8px 0; border-bottom: 1px solid #e9ecef;">✗ ${con}</li>`).join('')}
+                    </ul>
+                </div>
+                <div class="stats-section">
+                    <h3>Stats Summary</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">Summary</span>
+                        <span class="stat-value"></span>
+                    </div>
+                    <p style="color: #666; margin-top: 10px;">${data.team2.stats_summary}</p>
+                </div>
+                <div class="stats-section">
+                    <h3>Sentiment</h3>
+                    <p style="color: #666; margin-top: 10px;">${data.team2.sentiment_summary}</p>
+                </div>
+            `;
+            if (!isTeam1Winner) {
+                team2Card.classList.add('winner');
+            } else {
+                team2Card.classList.remove('winner');
+            }
+
+            // Display Matchup
+            const winProbPercent = Math.round(data.matchup.win_probability * 100);
+            matchupCard.innerHTML = `
+                <h3>Matchup Prediction</h3>
+                <div class="matchup-stats">
+                    <div class="matchup-stat">
+                        <div class="matchup-stat-label">Predicted Winner</div>
+                        <div class="matchup-stat-value">${data.matchup.predicted_winner}</div>
+                    </div>
+                    <div class="matchup-stat">
+                        <div class="matchup-stat-label">Win Probability</div>
+                        <div class="matchup-stat-value">${winProbPercent}%</div>
+                    </div>
+                    <div class="matchup-stat">
+                        <div class="matchup-stat-label">Score Breakdown</div>
+                        <div class="matchup-stat-value" style="font-size: 1.2rem;">${data.matchup.score_breakdown}</div>
+                    </div>
+                    <div class="matchup-stat">
+                        <div class="matchup-stat-label">Confidence</div>
+                        <div class="matchup-stat-value" style="font-size: 1.2rem;">
+                            ${data.matchup.confidence_label}
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultsContainer.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
+

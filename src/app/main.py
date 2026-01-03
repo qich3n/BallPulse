@@ -1,5 +1,7 @@
 import logging
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from .routes import health, compare
 
 # Configure logging
@@ -14,6 +16,21 @@ app = FastAPI(title="BallPulse", version="1.0.0")
 # Include routers
 app.include_router(health.router)
 app.include_router(compare.router)
+
+# Mount static files
+try:
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+except RuntimeError:
+    # Directory might not exist, that's okay
+    pass
+
+@app.get("/")
+async def read_root():
+    """Serve the frontend"""
+    try:
+        return FileResponse("static/index.html")
+    except FileNotFoundError:
+        return {"message": "Frontend not found. API is available at /docs"}
 
 @app.on_event("startup")
 async def startup_event():
