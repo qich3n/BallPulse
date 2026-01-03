@@ -78,4 +78,30 @@ BallPulse/
 ## API Endpoints
 
 - `GET /health` - Health check endpoint
-- `POST /compare` - Compare endpoint (stub)
+- `POST /compare` - Compare teams endpoint with caching and stats
+
+### Example Compare Request
+
+```bash
+curl -X POST "http://localhost:8000/compare" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "team1": "Lakers",
+    "team2": "Warriors",
+    "sport": "basketball",
+    "context": {
+      "gameDate": "2024-01-15",
+      "injuries": ["Player X - out"]
+    }
+  }'
+```
+
+## Quick Start
+
+1. Create virtual environment: `python3.11 -m venv venv`
+2. Activate it: `source venv/bin/activate` (macOS/Linux) or `venv\Scripts\activate` (Windows)
+3. Install dependencies: `pip install -r requirements.txt`
+4. Run the app: `uvicorn src.app.main:app --reload`
+5. Visit: http://localhost:8000/docs for interactive API documentation
+
+For detailed setup instructions, see [RUN_LOCALLY.md](RUN_LOCALLY.md).
