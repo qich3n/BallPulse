@@ -12,9 +12,13 @@ This guide will walk you through setting up and running the BallPulse applicatio
 
 ### 1. Navigate to the Project Directory
 
+Navigate to wherever you cloned or extracted the BallPulse project:
+
 ```bash
-cd /Users/qich3n/Downloads/BallPulse
+cd path/to/BallPulse
 ```
+
+Replace `path/to/BallPulse` with the actual path to your project directory.
 
 ### 2. Create a Virtual Environment
 
