@@ -7,6 +7,7 @@ from ..services.scoring_service import ScoringService
 from ..services.proscons_service import ProsConsService
 from ..services.sentiment_service import SentimentService
 from ..services.reddit_service import RedditService
+from ..services.injury_service import InjuryService
 from ..providers.basketball_provider import BasketballProvider
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ scoring_service = ScoringService()
 proscons_service = ProsConsService()
 sentiment_service = SentimentService()
 reddit_service = RedditService(cache_service=cache_service)
+injury_service = InjuryService()
 basketball_provider = BasketballProvider()
 
 
@@ -113,8 +115,20 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
     """
     team1_name = request.team1
     team2_name = request.team2
-    injuries1 = request.context.injuries if request.context else None
-    injuries2 = request.context.injuries if request.context else None  # Could be different in future
+    
+    # Get injuries from API (override context injuries if available)
+    try:
+        logger.info("Fetching injuries for %s and %s", team1_name, team2_name)
+        api_injuries1 = injury_service.fetch_team_injuries(team1_name)
+        api_injuries2 = injury_service.fetch_team_injuries(team2_name)
+        
+        # Use API injuries if available, otherwise use context injuries
+        injuries1 = api_injuries1 if api_injuries1 else (request.context.injuries if request.context else None)
+        injuries2 = api_injuries2 if api_injuries2 else (request.context.injuries if request.context else None)
+    except Exception as e:
+        logger.warning("Error fetching injuries from API: %s, using context injuries if provided", e)
+        injuries1 = request.context.injuries if request.context else None
+        injuries2 = request.context.injuries if request.context else None
     
     try:
         # Get stats from BasketballProvider

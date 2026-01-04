@@ -221,7 +221,20 @@ class ScoringService:
         team1_points = base_score + score_margin
         team2_points = base_score - score_margin
         
-        return f"Predicted final score: {team1_name} {int(team1_points)}-{int(team2_points)} {team2_name}"
+        # Ensure team1_points >= team2_points (winner first)
+        # Also ensure minimum difference to avoid ties
+        if team1_points < team2_points:
+            team1_points, team2_points = team2_points, team1_points
+            team1_name, team2_name = team2_name, team1_name
+        elif team1_points == team2_points:
+            # Add small margin to avoid ties
+            team1_points += 1
+        
+        # Capitalize team names properly
+        team1_name_formatted = team1_name.title()
+        team2_name_formatted = team2_name.title()
+        
+        return f"Predicted final score: {team1_name_formatted} {int(team1_points)}-{int(team2_points)} {team2_name_formatted}"
     
     def generate_confidence_label(self, win_probability: float) -> str:
         """
