@@ -116,19 +116,9 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
     team1_name = request.team1
     team2_name = request.team2
     
-    # Get injuries from API (override context injuries if available)
-    try:
-        logger.info("Fetching injuries for %s and %s", team1_name, team2_name)
-        api_injuries1 = injury_service.fetch_team_injuries(team1_name)
-        api_injuries2 = injury_service.fetch_team_injuries(team2_name)
-        
-        # Use API injuries if available, otherwise use context injuries
-        injuries1 = api_injuries1 if api_injuries1 else (request.context.injuries if request.context else None)
-        injuries2 = api_injuries2 if api_injuries2 else (request.context.injuries if request.context else None)
-    except Exception as e:
-        logger.warning("Error fetching injuries from API: %s, using context injuries if provided", e)
-        injuries1 = request.context.injuries if request.context else None
-        injuries2 = request.context.injuries if request.context else None
+    # Get injuries from context (injury service is placeholder for future API integration)
+    injuries1 = request.context.injuries if request.context else None
+    injuries2 = request.context.injuries if request.context else None
     
     try:
         # Get stats from BasketballProvider

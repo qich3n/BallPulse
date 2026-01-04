@@ -283,12 +283,26 @@ pip install -r requirements.txt
 - Integration with r/baseball and team subreddits
 
 #### Additional Enhancements
-- Real-time injury updates
+- Real-time injury API integration (currently injuries are provided via context)
 - Historical matchup analysis
 - Advanced machine learning models for predictions
 - Support for more sports (NFL, NHL, etc.)
 - User preferences and saved comparisons
 - Export comparisons to PDF/CSV
+
+### Injury Tracking
+
+Currently, injuries are provided via the request context. The application includes an `InjuryService` placeholder for future API integration. To include injuries in your comparison, add them to the request:
+
+```json
+{
+  "team1": "Lakers",
+  "team2": "Warriors",
+  "context": {
+    "injuries": ["LeBron James - Out", "Steph Curry - Questionable"]
+  }
+}
+```
 
 ## Contributing
 
