@@ -108,14 +108,31 @@ class BasketballProvider:
             return self._get_placeholder_stats(team_name)
         
         try:
-            # Fetch team game log for current season
+            # Try current season first
+            season = SeasonAll.current_season
             gamelog = teamgamelog.TeamGameLog(
                 team_id=team_id,
-                season=SeasonAll.current_season
+                season=season
             )
             
             # Get the game log dataframe
             games_df = gamelog.get_data_frames()[0]
+            
+            # If no games in current season, try previous season
+            if games_df.empty:
+                self.logger.info(f"No games found in {season} for team '{team_name}', trying previous season")
+                # Calculate previous season (e.g., 2025-26 -> 2024-25)
+                year = int(season.split('-')[0])
+                prev_season = f"{year-1}-{str(year)[2:]}"
+                try:
+                    gamelog = teamgamelog.TeamGameLog(
+                        team_id=team_id,
+                        season=prev_season
+                    )
+                    games_df = gamelog.get_data_frames()[0]
+                    season = prev_season
+                except Exception as e:
+                    self.logger.warning(f"Error fetching previous season {prev_season}: {e}")
             
             # Get last 10 games (they're already sorted by date descending)
             recent_games = games_df.head(10)
