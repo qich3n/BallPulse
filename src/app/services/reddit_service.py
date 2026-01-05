@@ -126,6 +126,7 @@ class RedditService:
             JSON data or None if failed
         """
         try:
+            # User-Agent is already set in session headers
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
