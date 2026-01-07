@@ -39,3 +39,6 @@ build/
 .DS_Store
 Thumbs.db
 
+# Resume/Personal Documents (local only, not for GitHub)
+RESUME_SUMMARY.md
+
