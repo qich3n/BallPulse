@@ -9,6 +9,7 @@ from ..services.sentiment_service import SentimentService
 from ..services.reddit_service import RedditService
 from ..services.injury_service import InjuryService
 from ..providers.basketball_provider import BasketballProvider
+from ..utils.team_normalizer import TeamNormalizer
 
 logger = logging.getLogger(__name__)
 
@@ -262,35 +263,51 @@ async def compare(request: CompareRequest) -> CompareResponse:
             detail=f"Sport '{request.sport}' is not supported. Currently only 'basketball' is supported."
         )
     
+    # Normalize team names (e.g., "celtics" -> "Boston Celtics", "lakers" -> "Los Angeles Lakers")
+    original_team1 = request.team1
+    original_team2 = request.team2
+    normalized_team1 = TeamNormalizer.normalize(request.team1)
+    normalized_team2 = TeamNormalizer.normalize(request.team2)
+    
+    # Log normalization if it changed
+    if original_team1 != normalized_team1:
+        logger.info("Normalized team1: '%s' -> '%s'", original_team1, normalized_team1)
+    if original_team2 != normalized_team2:
+        logger.info("Normalized team2: '%s' -> '%s'", original_team2, normalized_team2)
+    
+    # Update request with normalized names for processing
+    request.team1 = normalized_team1
+    request.team2 = normalized_team2
+    
     # Extract date from context if available
     date = request.context.gameDate if request.context else None
     
     try:
-        # Check cache
+        # Check cache (using normalized names to ensure cache hits for same teams)
         cached_response = cache_service.get(
             sport=request.sport,
-            team1=request.team1,
-            team2=request.team2,
+            team1=normalized_team1,
+            team2=normalized_team2,
             date=date
         )
         
         if cached_response is not None:
-            logger.info("Returning cached response for %s vs %s", request.team1, request.team2)
+            logger.info("Returning cached response for %s vs %s", normalized_team1, normalized_team2)
             return cached_response
     except Exception as e:
         logger.warning("Cache check failed: %s, continuing without cache", e)
     
     try:
-        # Generate analysis using all services
-        logger.info("Cache miss - generating new analysis for %s vs %s", request.team1, request.team2)
+        # Generate analysis using all services (with normalized names)
+        logger.info("Cache miss - generating new analysis for %s vs %s", normalized_team1, normalized_team2)
         response = await _generate_analysis(request)
         
-        # Cache the response
+        # Cache the response (using normalized names)
         try:
             cache_service.set(
                 sport=request.sport,
-                team1=request.team1,
-                team2=request.team2,
+                team1=normalized_team1,
+                team2=normalized_team2,
                 value=response,
                 date=date
             )
