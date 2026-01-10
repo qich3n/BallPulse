@@ -1,7 +1,7 @@
 import logging
 import time
 from typing import Dict, Any, Optional
-from nba_api.stats.endpoints import teamgamelog
+from nba_api.stats.endpoints import teamgamelog, teamdashboardbygeneralsplits
 from nba_api.stats.static import teams
 from nba_api.stats.library.parameters import SeasonAll
 
@@ -185,28 +185,91 @@ class BasketballProvider:
             # Get last 10 games (they're already sorted by date descending)
             recent_games = games_df.head(10) if games_df is not None and not games_df.empty else games_df
             
+            # If TeamGameLog fails, try TeamDashboardByGeneralSplits as fallback
             if games_df is None or games_df.empty:
-                self.logger.warning(f"No games found for team '{team_name}' (team_id={team_id}) after trying seasons {SeasonAll.current_season} and previous. API may not have data available or team may have no games. Using placeholder data.")
+                self.logger.info(f"TeamGameLog returned no data, trying TeamDashboardByGeneralSplits as fallback for team '{team_name}'")
+                games_df = None
+                season = SeasonAll.current_season
+                
+                # Try dashboard endpoint (this endpoint seems to work better)
+                seasons_to_try_dashboard = [
+                    season,
+                    f"{int(season.split('-')[0])-1}-{str(int(season.split('-')[0]))[2:]}",
+                    f"{int(season.split('-')[0])-2}-{str(int(season.split('-')[0])-1)[2:]}",
+                ]
+                
+                for dash_season in seasons_to_try_dashboard:
+                    try:
+                        time.sleep(0.6)
+                        dashboard = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+                            team_id=team_id,
+                            season=dash_season
+                        )
+                        dashboard_df = dashboard.get_data_frames()[0]
+                        
+                        if dashboard_df is not None and not dashboard_df.empty:
+                            self.logger.info(f"Successfully fetched dashboard stats for season {dash_season}")
+                            # Dashboard gives season averages, so we'll use those
+                            # Convert to match our expected format by creating a synthetic games_df structure
+                            season = dash_season
+                            games_df = dashboard_df  # Use dashboard data
+                            break
+                    except Exception as e:
+                        self.logger.debug(f"Dashboard endpoint error for season {dash_season}: {e}")
+                        continue
+            
+            if games_df is None or games_df.empty:
+                self.logger.warning(f"No stats found for team '{team_name}' (team_id={team_id}) after trying TeamGameLog and TeamDashboard endpoints. Using placeholder data.")
                 return self._get_placeholder_stats(team_name)
             
-            num_games = len(recent_games)
+            # Check if we're using dashboard data (different structure) or game log data
+            is_dashboard_data = games_df.shape[0] == 1 and 'FG_PCT' in games_df.columns and 'REB' in games_df.columns
             
-            # Calculate averages
-            shooting_pct = recent_games['FG_PCT'].mean() if 'FG_PCT' in recent_games.columns else 0.450
-            rebounding_avg = recent_games['REB'].mean() if 'REB' in recent_games.columns else 42.0
-            turnovers_avg = recent_games['TOV'].mean() if 'TOV' in recent_games.columns else 14.0
-            
-            # Calculate net rating proxy (using point differential)
-            # TeamGameLog provides PLUS_MINUS which is point differential per game
-            if 'PLUS_MINUS' in recent_games.columns:
-                net_rating_proxy = recent_games['PLUS_MINUS'].mean()
-            else:
-                # Fallback: calculate from points if available
-                if 'PTS' in recent_games.columns:
-                    # Use average points as a proxy (less accurate)
-                    net_rating_proxy = recent_games['PTS'].mean() - 108.0  # League average proxy
+            if is_dashboard_data:
+                # Dashboard data provides season totals, so we need to divide by games played for per-game averages
+                self.logger.debug("Using TeamDashboard data (season totals, converting to per-game averages)")
+                row = games_df.iloc[0]
+                gp = float(row.get('GP', 82)) if 'GP' in games_df.columns else 82.0
+                
+                # FG_PCT is already a percentage, not a total
+                shooting_pct = float(row.get('FG_PCT', 0.450)) if 'FG_PCT' in games_df.columns else 0.450
+                
+                # REB and TOV are totals, so divide by games played to get per-game averages
+                rebounding_avg = float(row.get('REB', 0.0)) / gp if 'REB' in games_df.columns and gp > 0 else 42.0
+                turnovers_avg = float(row.get('TOV', 0.0)) / gp if 'TOV' in games_df.columns and gp > 0 else 14.0
+                
+                # PLUS_MINUS is already a per-game average (or season total divided by games)
+                # Actually, it appears to be season total, so divide by GP
+                if 'PLUS_MINUS' in games_df.columns:
+                    net_rating_proxy = float(row.get('PLUS_MINUS', 0.0)) / gp if gp > 0 else 0.0
+                elif 'PTS' in games_df.columns:
+                    # PTS is season total, divide by GP then subtract league average
+                    pts_per_game = float(row.get('PTS', 0)) / gp if gp > 0 else 0
+                    net_rating_proxy = pts_per_game - 108.0  # League average proxy
                 else:
                     net_rating_proxy = 0.0
+                
+                # Use actual games played, capped at 10 for display purposes
+                num_games = min(int(gp), 10) if gp > 0 else 10
+            else:
+                # Game log data - calculate from individual games
+                recent_games = games_df.head(10) if games_df is not None and not games_df.empty else games_df
+                num_games = len(recent_games)
+                
+                # Calculate averages from game log
+                shooting_pct = recent_games['FG_PCT'].mean() if 'FG_PCT' in recent_games.columns else 0.450
+                rebounding_avg = recent_games['REB'].mean() if 'REB' in recent_games.columns else 42.0
+                turnovers_avg = recent_games['TOV'].mean() if 'TOV' in recent_games.columns else 14.0
+                
+                # Calculate net rating proxy (using point differential)
+                if 'PLUS_MINUS' in recent_games.columns:
+                    net_rating_proxy = recent_games['PLUS_MINUS'].mean()
+                else:
+                    # Fallback: calculate from points if available
+                    if 'PTS' in recent_games.columns:
+                        net_rating_proxy = recent_games['PTS'].mean() - 108.0  # League average proxy
+                    else:
+                        net_rating_proxy = 0.0
             
             # Ensure values are not NaN
             shooting_pct = float(shooting_pct) if not (shooting_pct != shooting_pct) else 0.450
