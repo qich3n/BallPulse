@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Dict, Any, Optional
 from nba_api.stats.endpoints import teamgamelog
 from nba_api.stats.static import teams
@@ -110,35 +111,82 @@ class BasketballProvider:
         try:
             # Try current season first
             season = SeasonAll.current_season
-            gamelog = teamgamelog.TeamGameLog(
-                team_id=team_id,
-                season=season
-            )
+            self.logger.debug(f"Fetching stats for team_id={team_id}, season={season}")
             
-            # Get the game log dataframe
-            games_df = gamelog.get_data_frames()[0]
+            try:
+                # Add small delay to avoid rate limiting
+                time.sleep(0.6)  # NBA API recommends delays between requests
+                
+                gamelog = teamgamelog.TeamGameLog(
+                    team_id=team_id,
+                    season=season
+                )
+                # Get the game log dataframe
+                games_df = gamelog.get_data_frames()[0]
+                
+                # Log response details for debugging
+                if hasattr(gamelog, 'get_dict'):
+                    try:
+                        response_dict = gamelog.get_dict()
+                        result_sets = response_dict.get('resultSets', [])
+                        if result_sets:
+                            row_set = result_sets[0].get('rowSet', [])
+                            self.logger.info(f"API response: {len(row_set)} rows returned for season {season}, team '{team_name}'")
+                            if len(row_set) == 0:
+                                self.logger.warning(f"API returned empty rowSet for season {season}. This may indicate the season hasn't started, data isn't available yet, or the API format changed.")
+                        else:
+                            self.logger.warning(f"API returned empty resultSets for season {season}")
+                    except Exception as dict_error:
+                        self.logger.debug(f"Could not parse API response dict: {dict_error}")
+                
+                self.logger.debug(f"API call successful for {season}. DataFrame shape: {games_df.shape}, columns: {list(games_df.columns) if not games_df.empty else 'empty'}")
+            except Exception as api_error:
+                self.logger.error(f"API error fetching current season {season} for team '{team_name}' (team_id={team_id}): {api_error}", exc_info=True)
+                games_df = None
             
-            # If no games in current season, try previous season
-            if games_df.empty:
-                self.logger.info(f"No games found in {season} for team '{team_name}', trying previous season")
-                # Calculate previous season (e.g., 2025-26 -> 2024-25)
+            # If no games in current season, try previous seasons
+            if games_df is None or games_df.empty:
+                self.logger.info(f"No games found in {season} for team '{team_name}' (team_id={team_id}), trying previous seasons")
+                # Try multiple previous seasons (last 2 seasons should have data)
                 year = int(season.split('-')[0])
-                prev_season = f"{year-1}-{str(year)[2:]}"
-                try:
-                    gamelog = teamgamelog.TeamGameLog(
-                        team_id=team_id,
-                        season=prev_season
-                    )
-                    games_df = gamelog.get_data_frames()[0]
-                    season = prev_season
-                except Exception as e:
-                    self.logger.warning(f"Error fetching previous season {prev_season}: {e}")
+                seasons_to_try = [
+                    f"{year-1}-{str(year)[2:]}",  # Previous season
+                    f"{year-2}-{str(year-1)[2:]}"  # Season before that
+                ]
+                
+                for prev_season in seasons_to_try:
+                    self.logger.debug(f"Trying season: {prev_season}")
+                    try:
+                        # Add delay between API requests
+                        time.sleep(0.6)
+                        
+                        prev_gamelog = teamgamelog.TeamGameLog(
+                            team_id=team_id,
+                            season=prev_season
+                        )
+                        prev_games_df = prev_gamelog.get_data_frames()[0]
+                        
+                        if prev_games_df is not None and not prev_games_df.empty:
+                            self.logger.info(f"Found {len(prev_games_df)} games in season {prev_season} for team '{team_name}'")
+                            games_df = prev_games_df
+                            season = prev_season
+                            break
+                        else:
+                            self.logger.debug(f"No games in season {prev_season} for team '{team_name}'")
+                    except Exception as e:
+                        self.logger.debug(f"Error fetching season {prev_season} for team '{team_name}': {e}")
+                        continue
+                
+                # If still no data, create empty dataframe
+                if games_df is None or games_df.empty:
+                    import pandas as pd
+                    games_df = pd.DataFrame()
             
             # Get last 10 games (they're already sorted by date descending)
-            recent_games = games_df.head(10)
+            recent_games = games_df.head(10) if games_df is not None and not games_df.empty else games_df
             
-            if recent_games.empty:
-                self.logger.warning(f"No games found for team '{team_name}', using placeholder data")
+            if games_df is None or games_df.empty:
+                self.logger.warning(f"No games found for team '{team_name}' (team_id={team_id}) after trying seasons {SeasonAll.current_season} and previous. API may not have data available or team may have no games. Using placeholder data.")
                 return self._get_placeholder_stats(team_name)
             
             num_games = len(recent_games)
