@@ -4,7 +4,7 @@ pydantic==2.5.0
 pytest==7.4.3
 httpx==0.25.2
 diskcache==5.6.3
-nba-api==1.2.1
+nba-api>=1.2.1
 requests==2.31.0
 praw==7.7.1
 feedparser==6.0.10
