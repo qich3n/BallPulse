@@ -1034,12 +1034,12 @@
         <!-- Teams Page -->
         <div class="page-container" id="teamsPage">
             <div class="search-bar">
-                <input type="text" class="search-input" id="teamSearch" placeholder="Search teams...">
+                <input type="text" class="search-input" id="teamSearch" placeholder="Search for a team (e.g., Lakers, Celtics, Warriors)...">
             </div>
             <div id="teamsContainer">
-                <div class="loading-card">
-                    <div class="spinner"></div>
-                    <p class="loading-text">Loading teams...</p>
+                <div class="empty-state">
+                    <div class="empty-state-icon">🏀</div>
+                    <p>Search for a team to see stats</p>
                 </div>
             </div>
         </div>
@@ -1047,12 +1047,12 @@
         <!-- Matchup Page -->
         <div class="page-container" id="matchupPage">
             <div class="search-bar">
-                <input type="text" class="search-input" id="matchupSearch" placeholder="Search by team name...">
+                <input type="text" class="search-input" id="matchupSearch" placeholder="Search by team name (e.g., Lakers, Celtics)...">
             </div>
             <div id="matchupContainer">
-                <div class="loading-card">
-                    <div class="spinner"></div>
-                    <p class="loading-text">Loading matchups...</p>
+                <div class="empty-state">
+                    <div class="empty-state-icon">⚔️</div>
+                    <p>Search for a team to see matchups</p>
                 </div>
             </div>
         </div>
@@ -1060,12 +1060,12 @@
         <!-- History Page -->
         <div class="page-container" id="historyPage">
             <div class="search-bar">
-                <input type="text" class="search-input" id="historySearch" placeholder="Search by team name...">
+                <input type="text" class="search-input" id="historySearch" placeholder="Search by team name or 'Team1 vs Team2'...">
             </div>
             <div id="historyContainer">
-                <div class="loading-card">
-                    <div class="spinner"></div>
-                    <p class="loading-text">Loading history...</p>
+                <div class="empty-state">
+                    <div class="empty-state-icon">📈</div>
+                    <p>Search for teams to see comparison history</p>
                 </div>
             </div>
         </div>
@@ -1306,13 +1306,13 @@
                 titleElement.textContent = pageTitles[page] || 'BallPulse';
             }
             
-            // Load page data
+            // Don't auto-load data - wait for user search
             if (page === 'teams') {
-                loadTeams();
+                showEmptyState('teamsContainer', '🏀', 'Search for a team to see stats');
             } else if (page === 'matchup') {
-                loadMatchups();
+                showEmptyState('matchupContainer', '⚔️', 'Search for a team to see matchups');
             } else if (page === 'history') {
-                loadHistory();
+                showEmptyState('historyContainer', '📈', 'Search for teams to see comparison history');
             }
         }
 
@@ -1327,9 +1327,21 @@
             });
         });
 
+        function showEmptyState(containerId, icon, message) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${icon}</div><p>${message}</p></div>`;
+        }
+
         // Teams Page
-        async function loadTeams() {
+        async function loadTeams(searchTerm = '') {
             const container = document.getElementById('teamsContainer');
+            
+            // If no search term, show empty state
+            if (!searchTerm.trim()) {
+                showEmptyState('teamsContainer', '🏀', 'Search for a team to see stats');
+                return;
+            }
+            
             container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading teams...</p></div>';
             
             try {
@@ -1337,24 +1349,24 @@
                 if (!response.ok) throw new Error('Failed to load teams');
                 
                 const data = await response.json();
-                displayTeams(data.teams);
+                displayTeams(data.teams, searchTerm);
             } catch (error) {
                 container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
             }
         }
 
-        function displayTeams(teams) {
+        function displayTeams(teams, searchTerm = '') {
             const container = document.getElementById('teamsContainer');
-            const searchTerm = document.getElementById('teamSearch')?.value.toLowerCase() || '';
+            const searchLower = searchTerm.toLowerCase();
             
             const filteredTeams = teams.filter(team => 
-                team.full_name.toLowerCase().includes(searchTerm) ||
-                team.city.toLowerCase().includes(searchTerm) ||
-                team.abbreviation.toLowerCase().includes(searchTerm)
+                team.full_name.toLowerCase().includes(searchLower) ||
+                team.city.toLowerCase().includes(searchLower) ||
+                team.abbreviation.toLowerCase().includes(searchLower)
             );
             
             if (filteredTeams.length === 0) {
-                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏀</div><p>No teams found</p></div>';
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏀</div><p>No teams found matching your search</p></div>';
                 return;
             }
             
@@ -1398,32 +1410,36 @@
         // Setup team search
         const teamSearch = document.getElementById('teamSearch');
         if (teamSearch) {
-            teamSearch.addEventListener('input', () => {
-                const container = document.getElementById('teamsContainer');
-                const teams = Array.from(container.querySelectorAll('.team-item')).map(item => {
-                    return {
-                        full_name: item.querySelector('.team-item-name')?.textContent || '',
-                        city: '',
-                        abbreviation: item.querySelector('.team-item-abbr')?.textContent || '',
-                        stats: null
-                    };
-                });
-                // Reload teams with filter
-                loadTeams();
+            let searchTimeout;
+            teamSearch.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value.trim();
+                
+                // Debounce search
+                searchTimeout = setTimeout(() => {
+                    if (searchTerm.length >= 2) {
+                        loadTeams(searchTerm);
+                    } else if (searchTerm.length === 0) {
+                        showEmptyState('teamsContainer', '🏀', 'Search for a team to see stats');
+                    }
+                }, 300);
             });
         }
 
         // Matchup Page
-        async function loadMatchups() {
+        async function loadMatchups(searchTerm = '') {
             const container = document.getElementById('matchupContainer');
+            
+            // If no search term, show empty state
+            if (!searchTerm.trim()) {
+                showEmptyState('matchupContainer', '⚔️', 'Search for a team to see matchups');
+                return;
+            }
+            
             container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading matchups...</p></div>';
             
             try {
-                const searchTerm = document.getElementById('matchupSearch')?.value || '';
-                const url = searchTerm 
-                    ? `${API_BASE_URL}/matchup?team=${encodeURIComponent(searchTerm)}`
-                    : `${API_BASE_URL}/matchup`;
-                
+                const url = `${API_BASE_URL}/matchup?team=${encodeURIComponent(searchTerm)}`;
                 const response = await fetch(url);
                 if (!response.ok) throw new Error('Failed to load matchups');
                 
@@ -1468,25 +1484,42 @@
         // Setup matchup search
         const matchupSearch = document.getElementById('matchupSearch');
         if (matchupSearch) {
-            matchupSearch.addEventListener('input', loadMatchups);
+            let searchTimeout;
+            matchupSearch.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value.trim();
+                
+                // Debounce search
+                searchTimeout = setTimeout(() => {
+                    if (searchTerm.length >= 2) {
+                        loadMatchups(searchTerm);
+                    } else if (searchTerm.length === 0) {
+                        showEmptyState('matchupContainer', '⚔️', 'Search for a team to see matchups');
+                    }
+                }, 300);
+            });
         }
 
         // History Page
-        async function loadHistory() {
+        async function loadHistory(searchTerm = '') {
             const container = document.getElementById('historyContainer');
+            
+            // If no search term, show empty state
+            if (!searchTerm.trim()) {
+                showEmptyState('historyContainer', '📈', 'Search for teams to see comparison history');
+                return;
+            }
+            
             container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading history...</p></div>';
             
             try {
-                const searchTerm = document.getElementById('historySearch')?.value || '';
                 let url = `${API_BASE_URL}/history?limit=50`;
-                if (searchTerm) {
-                    // Try to split search term for team1 and team2
-                    const parts = searchTerm.split(' vs ');
-                    if (parts.length === 2) {
-                        url += `&team1=${encodeURIComponent(parts[0].trim())}&team2=${encodeURIComponent(parts[1].trim())}`;
-                    } else {
-                        url += `&team1=${encodeURIComponent(searchTerm)}`;
-                    }
+                // Try to split search term for team1 and team2
+                const parts = searchTerm.split(' vs ');
+                if (parts.length === 2) {
+                    url += `&team1=${encodeURIComponent(parts[0].trim())}&team2=${encodeURIComponent(parts[1].trim())}`;
+                } else {
+                    url += `&team1=${encodeURIComponent(searchTerm)}`;
                 }
                 
                 const response = await fetch(url);
@@ -1533,7 +1566,20 @@
         // Setup history search
         const historySearch = document.getElementById('historySearch');
         if (historySearch) {
-            historySearch.addEventListener('input', loadHistory);
+            let searchTimeout;
+            historySearch.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value.trim();
+                
+                // Debounce search
+                searchTimeout = setTimeout(() => {
+                    if (searchTerm.length >= 2) {
+                        loadHistory(searchTerm);
+                    } else if (searchTerm.length === 0) {
+                        showEmptyState('historyContainer', '📈', 'Search for teams to see comparison history');
+                    }
+                }, 300);
+            });
         }
     </script>
 </body>
