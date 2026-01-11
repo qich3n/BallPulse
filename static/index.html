@@ -737,6 +737,177 @@
             font-weight: 700;
             color: var(--primary);
         }
+
+        /* Page Container */
+        .page-container {
+            display: none;
+        }
+
+        .page-container.active {
+            display: block;
+        }
+
+        /* Teams Page */
+        .teams-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .team-item {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .team-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(59, 130, 246, 0.2);
+            border-color: var(--primary);
+        }
+
+        .team-item-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .team-item-abbr {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .team-item-name {
+            flex: 1;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .team-item-stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .team-stat {
+            text-align: center;
+        }
+
+        .team-stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .team-stat-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* History/Matchup Page */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            margin-top: 24px;
+        }
+
+        .history-item {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid var(--border);
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            border-color: var(--primary);
+            transform: translateX(4px);
+        }
+
+        .history-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .history-teams {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .history-timestamp {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .history-prediction {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-top: 12px;
+        }
+
+        .history-winner {
+            padding: 6px 12px;
+            background: var(--success);
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .history-probability {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 64px 32px;
+            color: var(--text-muted);
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .search-bar {
+            margin-bottom: 24px;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -748,25 +919,25 @@
         </div>
         <ul class="nav-menu">
             <li class="nav-item">
-                <a href="#" class="nav-link active">
+                <a href="#" class="nav-link active" data-page="dashboard">
                     <span>📊</span>
                     <span>Dashboard</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="#" class="nav-link" data-page="teams">
                     <span>👥</span>
                     <span>Teams</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="#" class="nav-link" data-page="matchup">
                     <span>⚔️</span>
                     <span>Matchup</span>
                 </a>
             </li>
             <li class="nav-item">
-                <a href="#" class="nav-link">
+                <a href="#" class="nav-link" data-page="history">
                     <span>📈</span>
                     <span>History</span>
                 </a>
@@ -786,7 +957,7 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="header-bar">
-            <h1 class="header-title">Matchup Predictor</h1>
+            <h1 class="header-title" id="pageTitle">Matchup Predictor</h1>
             <div class="header-meta">
                 <div class="status-indicator">
                     <div class="status-dot"></div>
@@ -795,6 +966,8 @@
             </div>
         </div>
 
+        <!-- Dashboard Page -->
+        <div class="page-container active" id="dashboardPage">
         <!-- Form Card -->
         <div class="form-card">
             <form id="compareForm">
@@ -855,6 +1028,46 @@
 
             <!-- Sentiment Section -->
             <div class="sentiment-section" id="sentimentSection"></div>
+        </div>
+        </div>
+
+        <!-- Teams Page -->
+        <div class="page-container" id="teamsPage">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="teamSearch" placeholder="Search teams...">
+            </div>
+            <div id="teamsContainer">
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Loading teams...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Matchup Page -->
+        <div class="page-container" id="matchupPage">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="matchupSearch" placeholder="Search by team name...">
+            </div>
+            <div id="matchupContainer">
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Loading matchups...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- History Page -->
+        <div class="page-container" id="historyPage">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="historySearch" placeholder="Search by team name...">
+            </div>
+            <div id="historyContainer">
+                <div class="loading-card">
+                    <div class="spinner"></div>
+                    <p class="loading-text">Loading history...</p>
+                </div>
+            </div>
         </div>
     </main>
 
@@ -1060,6 +1273,267 @@
             
             // Smooth scroll to results
             resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        // Navigation and Routing
+        const pageTitles = {
+            dashboard: 'Matchup Predictor',
+            teams: 'NBA Teams',
+            matchup: 'Recent Matchups',
+            history: 'Comparison History'
+        };
+
+        function navigateToPage(page) {
+            // Hide all pages
+            document.querySelectorAll('.page-container').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+            
+            // Show selected page
+            const pageElement = document.getElementById(`${page}Page`);
+            if (pageElement) {
+                pageElement.classList.add('active');
+            }
+            
+            // Update nav link
+            const navLink = document.querySelector(`[data-page="${page}"]`);
+            if (navLink) {
+                navLink.classList.add('active');
+            }
+            
+            // Update page title
+            const titleElement = document.getElementById('pageTitle');
+            if (titleElement) {
+                titleElement.textContent = pageTitles[page] || 'BallPulse';
+            }
+            
+            // Load page data
+            if (page === 'teams') {
+                loadTeams();
+            } else if (page === 'matchup') {
+                loadMatchups();
+            } else if (page === 'history') {
+                loadHistory();
+            }
+        }
+
+        // Setup navigation listeners
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.getAttribute('data-page');
+                if (page) {
+                    navigateToPage(page);
+                }
+            });
+        });
+
+        // Teams Page
+        async function loadTeams() {
+            const container = document.getElementById('teamsContainer');
+            container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading teams...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/teams?include_stats=true`);
+                if (!response.ok) throw new Error('Failed to load teams');
+                
+                const data = await response.json();
+                displayTeams(data.teams);
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayTeams(teams) {
+            const container = document.getElementById('teamsContainer');
+            const searchTerm = document.getElementById('teamSearch')?.value.toLowerCase() || '';
+            
+            const filteredTeams = teams.filter(team => 
+                team.full_name.toLowerCase().includes(searchTerm) ||
+                team.city.toLowerCase().includes(searchTerm) ||
+                team.abbreviation.toLowerCase().includes(searchTerm)
+            );
+            
+            if (filteredTeams.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏀</div><p>No teams found</p></div>';
+                return;
+            }
+            
+            container.innerHTML = '<div class="teams-grid"></div>';
+            const grid = container.querySelector('.teams-grid');
+            
+            filteredTeams.forEach(team => {
+                const stats = team.stats || {};
+                const teamCard = document.createElement('div');
+                teamCard.className = 'team-item';
+                teamCard.innerHTML = `
+                    <div class="team-item-header">
+                        <div class="team-item-abbr">${team.abbreviation}</div>
+                        <div class="team-item-name">${team.full_name}</div>
+                    </div>
+                    ${team.stats ? `
+                    <div class="team-item-stats">
+                        <div class="team-stat">
+                            <div class="team-stat-label">FG%</div>
+                            <div class="team-stat-value">${(stats.shooting_pct * 100).toFixed(1)}%</div>
+                        </div>
+                        <div class="team-stat">
+                            <div class="team-stat-label">Rebounds</div>
+                            <div class="team-stat-value">${stats.rebounding_avg?.toFixed(1) || 'N/A'}</div>
+                        </div>
+                        <div class="team-stat">
+                            <div class="team-stat-label">Turnovers</div>
+                            <div class="team-stat-value">${stats.turnovers_avg?.toFixed(1) || 'N/A'}</div>
+                        </div>
+                        <div class="team-stat">
+                            <div class="team-stat-label">Games</div>
+                            <div class="team-stat-value">${stats.last_10_games || 'N/A'}</div>
+                        </div>
+                    </div>
+                    ` : '<div style="padding: 12px; color: var(--text-muted); font-size: 14px;">Stats loading...</div>'}
+                `;
+                grid.appendChild(teamCard);
+            });
+        }
+
+        // Setup team search
+        const teamSearch = document.getElementById('teamSearch');
+        if (teamSearch) {
+            teamSearch.addEventListener('input', () => {
+                const container = document.getElementById('teamsContainer');
+                const teams = Array.from(container.querySelectorAll('.team-item')).map(item => {
+                    return {
+                        full_name: item.querySelector('.team-item-name')?.textContent || '',
+                        city: '',
+                        abbreviation: item.querySelector('.team-item-abbr')?.textContent || '',
+                        stats: null
+                    };
+                });
+                // Reload teams with filter
+                loadTeams();
+            });
+        }
+
+        // Matchup Page
+        async function loadMatchups() {
+            const container = document.getElementById('matchupContainer');
+            container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading matchups...</p></div>';
+            
+            try {
+                const searchTerm = document.getElementById('matchupSearch')?.value || '';
+                const url = searchTerm 
+                    ? `${API_BASE_URL}/matchup?team=${encodeURIComponent(searchTerm)}`
+                    : `${API_BASE_URL}/matchup`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to load matchups');
+                
+                const data = await response.json();
+                displayMatchups(data.matchups);
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayMatchups(matchups) {
+            const container = document.getElementById('matchupContainer');
+            
+            if (matchups.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">⚔️</div><p>No matchups found. Try comparing teams on the Dashboard!</p></div>';
+                return;
+            }
+            
+            container.innerHTML = '<div class="history-list"></div>';
+            const list = container.querySelector('.history-list');
+            
+            matchups.forEach(matchup => {
+                const date = new Date(matchup.timestamp);
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.onclick = () => navigateToPage('history');
+                item.innerHTML = `
+                    <div class="history-item-header">
+                        <div class="history-teams">${matchup.team1} vs ${matchup.team2}</div>
+                        <div class="history-timestamp">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</div>
+                    </div>
+                    <div class="history-prediction">
+                        <div class="history-winner">${matchup.predicted_winner}</div>
+                        <div class="history-probability">${Math.round(matchup.win_probability * 100)}% win probability</div>
+                        <div class="history-probability">${matchup.confidence} confidence</div>
+                    </div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Setup matchup search
+        const matchupSearch = document.getElementById('matchupSearch');
+        if (matchupSearch) {
+            matchupSearch.addEventListener('input', loadMatchups);
+        }
+
+        // History Page
+        async function loadHistory() {
+            const container = document.getElementById('historyContainer');
+            container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading history...</p></div>';
+            
+            try {
+                const searchTerm = document.getElementById('historySearch')?.value || '';
+                let url = `${API_BASE_URL}/history?limit=50`;
+                if (searchTerm) {
+                    // Try to split search term for team1 and team2
+                    const parts = searchTerm.split(' vs ');
+                    if (parts.length === 2) {
+                        url += `&team1=${encodeURIComponent(parts[0].trim())}&team2=${encodeURIComponent(parts[1].trim())}`;
+                    } else {
+                        url += `&team1=${encodeURIComponent(searchTerm)}`;
+                    }
+                }
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to load history');
+                
+                const data = await response.json();
+                displayHistory(data.entries);
+            } catch (error) {
+                container.innerHTML = `<div class="error-message">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayHistory(entries) {
+            const container = document.getElementById('historyContainer');
+            
+            if (entries.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📈</div><p>No comparison history yet. Try comparing teams on the Dashboard!</p></div>';
+                return;
+            }
+            
+            container.innerHTML = '<div class="history-list"></div>';
+            const list = container.querySelector('.history-list');
+            
+            entries.forEach(entry => {
+                const date = new Date(entry.timestamp);
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <div class="history-item-header">
+                        <div class="history-teams">${entry.team1} vs ${entry.team2}</div>
+                        <div class="history-timestamp">${date.toLocaleDateString()} ${date.toLocaleTimeString()}</div>
+                    </div>
+                    ${entry.predicted_winner ? `
+                    <div class="history-prediction">
+                        <div class="history-winner">${entry.predicted_winner}</div>
+                        <div class="history-probability">${Math.round((entry.win_probability || 0) * 100)}% win probability</div>
+                    </div>
+                    ` : ''}
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        // Setup history search
+        const historySearch = document.getElementById('historySearch');
+        if (historySearch) {
+            historySearch.addEventListener('input', loadHistory);
         }
     </script>
 </body>

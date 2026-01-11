@@ -8,6 +8,7 @@ from ..services.proscons_service import ProsConsService
 from ..services.sentiment_service import SentimentService
 from ..services.reddit_service import RedditService
 from ..services.injury_service import InjuryService
+from ..services.history_service import HistoryService
 from ..providers.basketball_provider import BasketballProvider
 from ..utils.team_normalizer import TeamNormalizer
 
@@ -23,6 +24,7 @@ sentiment_service = SentimentService()
 reddit_service = RedditService(cache_service=cache_service)
 injury_service = InjuryService()
 basketball_provider = BasketballProvider()
+history_service = HistoryService()
 
 
 # Request Schemas
@@ -313,6 +315,17 @@ async def compare(request: CompareRequest) -> CompareResponse:
             )
         except Exception as e:
             logger.warning("Failed to cache response: %s", e)
+        
+        # Save to history
+        try:
+            history_service.add_comparison(
+                team1=normalized_team1,
+                team2=normalized_team2,
+                sport=request.sport,
+                result=response.dict() if hasattr(response, 'dict') else response
+            )
+        except Exception as e:
+            logger.warning("Failed to save to history: %s", e)
         
         return response
         
