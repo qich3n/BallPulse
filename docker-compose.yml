@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  ballpulse:
+    build: .
+    container_name: ballpulse
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=INFO
+    # Uncomment if you have a .env file with secrets
+    # env_file:
+    #   - .env
+    restart: unless-stopped
