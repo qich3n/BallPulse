@@ -361,3 +361,39 @@ This project is open source and available under the MIT License.
 ## Support
 
 For issues, questions, or suggestions, please open an issue on GitHub.
+
+## Running with Docker
+
+You can run BallPulse without installing Python locally by using Docker.
+
+### Build the image
+
+```bash
+docker build -t ballpulse:latest .
+```
+
+### Run the container
+
+```bash
+docker run --rm -p 8000:8000 ballpulse:latest
+```
+
+Then open:
+- Frontend UI: http://localhost:8000/
+- API Docs: http://localhost:8000/docs
+
+### Using docker-compose
+
+```bash
+docker-compose up --build
+```
+
+This will:
+- Build the Docker image
+- Start the BallPulse service on port 8000
+
+To stop:
+
+```bash
+docker-compose down
+```
