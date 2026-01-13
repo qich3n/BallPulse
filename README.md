@@ -178,7 +178,8 @@ BallPulse/
 │       │   ├── scoring_service.py
 │       │   └── proscons_service.py
 │       ├── providers/           # Data providers
-│       │   └── basketball_provider.py
+│       │   ├── basketball_provider.py
+│       │   └── espn_provider.py  # ESPN API (future)
 │       └── models/              # Data models
 ├── static/                      # Frontend files
 │   └── index.html
@@ -233,6 +234,14 @@ Reddit's public JSON endpoints work without authentication. If you encounter iss
 - Verify Reddit is accessible
 - The service will continue to work but without Reddit data
 
+### ESPN API (Future)
+
+When ESPN API integration is implemented:
+- ESPN's API is unofficial and may change without notice
+- Rate limiting may apply - implement appropriate delays between requests
+- Respect ESPN's terms of service and robots.txt
+- Consider implementing request caching to reduce API calls
+
 ### Cache Issues
 
 If you experience stale data:
@@ -282,6 +291,15 @@ pip install -r requirements.txt
 - Pitcher vs. batter matchup analysis
 - Integration with r/baseball and team subreddits
 
+#### ESPNProvider (Future)
+- Integration with ESPN's unofficial/hidden API
+- Real-time scores and game information
+- Comprehensive team and player statistics
+- Injury reports and updates
+- League standings and schedules
+- Game summaries and play-by-play data
+- **Note**: ESPN's API is unofficial and discovered through reverse-engineering. Use responsibly and respect rate limits.
+
 #### Additional Enhancements
 - Real-time injury API integration (currently injuries are provided via context)
 - Historical matchup analysis
@@ -303,6 +321,34 @@ Currently, injuries are provided via the request context. The application includ
   }
 }
 ```
+
+### ESPN API Integration (Future)
+
+The `ESPNProvider` class is a placeholder for future ESPN API integration. ESPN uses an unofficial API that can be accessed by reverse-engineering their website's network requests.
+
+**Key ESPN API Endpoints (when implemented):**
+- **Scores**: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard`
+- **Team Stats**: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/{team_id}/stats`
+- **Injuries**: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/injuries`
+- **Standings**: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/standings`
+- **Game Details**: `https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={game_id}`
+
+**Benefits of ESPN API:**
+- Real-time scores and game updates
+- Comprehensive injury reports
+- League standings and schedules
+- Game summaries and detailed statistics
+- Player-specific data
+
+**Important Notes:**
+- This is an **unofficial API** - ESPN may change endpoints without notice
+- Implement rate limiting and request delays
+- Use caching to reduce API calls
+- Respect ESPN's terms of service
+- Consider implementing fallback mechanisms
+
+**Implementation Status:**
+The `ESPNProvider` class structure is in place at `src/app/providers/espn_provider.py` with method stubs ready for implementation.
 
 ## Contributing
 
