@@ -2,13 +2,97 @@
 
 This guide will walk you through setting up and running the BallPulse application on your local machine.
 
-## Prerequisites
+## Quick Start Options
+
+You can run BallPulse in two ways:
+1. **Using Docker** (Recommended - No Python installation needed)
+2. **Using Python Virtual Environment** (Traditional method)
+
+---
+
+## Option 1: Running with Docker (Recommended)
+
+### Prerequisites
+
+- Docker installed on your system
+- Docker Compose (usually included with Docker Desktop)
+
+### Step-by-Step Docker Setup
+
+#### 1. Navigate to Project Directory
+
+```bash
+cd path/to/BallPulse
+```
+
+#### 2. Build and Run with Docker Compose
+
+```bash
+docker-compose up --build
+```
+
+This will:
+- Build the Docker image from the `Dockerfile`
+- Start the BallPulse service on port 8000
+- Show logs in your terminal
+
+#### 3. Access the Application
+
+Once running, the application will be available at:
+- **Frontend UI:** http://localhost:8000/
+- **API Docs:** http://localhost:8000/docs
+- **Health Check:** http://localhost:8000/health
+
+#### 4. Stop the Application
+
+Press `Ctrl+C` in the terminal, or run:
+
+```bash
+docker-compose down
+```
+
+### Alternative: Using Docker Directly
+
+If you prefer not to use docker-compose:
+
+```bash
+# Build the image
+docker build -t ballpulse:latest .
+
+# Run the container
+docker run --rm -p 8000:8000 ballpulse:latest
+```
+
+### Docker Troubleshooting
+
+**Port Already in Use:**
+Edit `docker-compose.yml` and change the port mapping:
+```yaml
+ports:
+  - "8001:8000"  # Use port 8001 on your host
+```
+
+**View Container Logs:**
+```bash
+docker-compose logs -f
+```
+
+**Rebuild After Code Changes:**
+```bash
+docker-compose up --build
+```
+
+---
+
+## Option 2: Running with Python Virtual Environment
+
+### Prerequisites
 
 - Python 3.11 or higher
 - pip (Python package manager)
 - Virtual environment support (venv)
 
-## Step-by-Step Setup
+### Step-by-Step Python Setup
 
 ### 1. Navigate to the Project Directory
 
@@ -105,8 +189,9 @@ INFO:     Application startup complete.
 
 ## Accessing the Application
 
-Once running, the application will be available at:
+Once running (via Docker or Python), the application will be available at:
 
+- **Frontend UI:** http://localhost:8000/
 - **API Base URL:** http://localhost:8000
 - **Interactive API Documentation (Swagger UI):** http://localhost:8000/docs
 - **Alternative API Documentation (ReDoc):** http://localhost:8000/redoc
