@@ -42,3 +42,5 @@ Thumbs.db
 # Resume/Personal Documents (local only, not for GitHub)
 RESUME_SUMMARY.md
 
+# Local documentation (personal notes)
+RUN_LOCALLY.md
