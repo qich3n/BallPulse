@@ -38,6 +38,34 @@
             --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.5);
         }
 
+        /* Light Theme */
+        [data-theme="light"] {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #f1f5f9;
+            --bg-card: #ffffff;
+            --bg-hover: #e2e8f0;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-light: #3b82f6;
+            --secondary: #7c3aed;
+            --secondary-hover: #6d28d9;
+            --success: #059669;
+            --success-hover: #047857;
+            --danger: #dc2626;
+            --warning: #d97706;
+            --accent: #0891b2;
+            --accent-hover: #0e7490;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --border: #e2e8f0;
+            --border-light: #cbd5e1;
+            --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+            --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
             background: var(--bg-primary);
@@ -1087,6 +1115,78 @@
             border-radius: 8px;
             display: inline-block;
         }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: var(--bg-tertiary);
+            border-radius: 10px;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--primary);
+            background: var(--bg-hover);
+        }
+
+        .theme-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .theme-toggle-switch {
+            width: 48px;
+            height: 26px;
+            background: var(--border);
+            border-radius: 13px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle-switch::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            top: 3px;
+            left: 3px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        [data-theme="light"] .theme-toggle-switch {
+            background: var(--primary);
+        }
+
+        [data-theme="light"] .theme-toggle-switch::before {
+            left: 25px;
+            background: #ffffff;
+        }
+
+        .theme-icon {
+            font-size: 18px;
+        }
+
+        [data-theme="light"] .theme-icon-dark {
+            display: none;
+        }
+
+        [data-theme="dark"] .theme-icon-light,
+        :root:not([data-theme]) .theme-icon-light {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -1123,6 +1223,14 @@
             </li>
         </ul>
         <div class="sidebar-footer">
+            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+                <div class="theme-toggle-label">
+                    <span class="theme-icon theme-icon-dark">🌙</span>
+                    <span class="theme-icon theme-icon-light">☀️</span>
+                    <span id="themeLabel">Dark Mode</span>
+                </div>
+                <div class="theme-toggle-switch"></div>
+            </div>
             <div class="user-profile">
                 <div class="user-avatar">BP</div>
                 <div class="user-info">
@@ -1257,6 +1365,45 @@
     </main>
 
     <script>
+        // Theme Management
+        function getPreferredTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) return savedTheme;
+            return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            updateThemeLabel(theme);
+        }
+
+        function updateThemeLabel(theme) {
+            const label = document.getElementById('themeLabel');
+            if (label) {
+                label.textContent = theme === 'light' ? 'Light Mode' : 'Dark Mode';
+            }
+        }
+
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            setTheme(newTheme);
+        }
+
+        // Initialize theme on page load
+        (function() {
+            const theme = getPreferredTheme();
+            setTheme(theme);
+        })();
+
+        // Listen for system theme changes
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
+            if (!localStorage.getItem('theme')) {
+                setTheme(e.matches ? 'light' : 'dark');
+            }
+        });
+
         const API_BASE_URL = window.location.origin;
         
         const form = document.getElementById('compareForm');
