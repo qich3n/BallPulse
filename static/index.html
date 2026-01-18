@@ -1187,6 +1187,373 @@
         :root:not([data-theme]) .theme-icon-light {
             display: none;
         }
+
+        /* ==================== ESPN Data Styles ==================== */
+        
+        .loading-indicator {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 60px;
+            color: var(--text-muted);
+            font-size: 16px;
+        }
+
+        /* League Tabs */
+        .scores-header, .standings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .league-tabs {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .league-tab {
+            padding: 10px 20px;
+            border: 1px solid var(--border);
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .league-tab:hover {
+            background: var(--bg-hover);
+            color: var(--text-primary);
+        }
+
+        .league-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .refresh-btn {
+            padding: 10px 16px;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        .refresh-btn:hover {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Score Cards */
+        .score-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 12px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .score-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .score-card.live {
+            border-color: var(--danger);
+            box-shadow: 0 0 0 1px var(--danger);
+        }
+
+        .score-status {
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+            padding: 4px 10px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .score-status.live {
+            background: var(--danger);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .score-status.final {
+            background: var(--success);
+            color: white;
+        }
+
+        .score-status.scheduled {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .score-teams {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .score-team {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+        }
+
+        .score-team.winner {
+            background: linear-gradient(135deg, var(--success) 0%, rgba(16, 185, 129, 0.2) 100%);
+        }
+
+        .team-logo-small {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .team-logo-tiny {
+            width: 20px;
+            height: 20px;
+            object-fit: contain;
+            margin-right: 8px;
+        }
+
+        .score-team .team-name {
+            flex: 1;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .score-team .team-score {
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .score-venue, .score-broadcast, .score-odds {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 8px;
+        }
+
+        /* Standings Tables */
+        .standings-conference {
+            margin-bottom: 24px;
+        }
+
+        .conference-name {
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--primary);
+        }
+
+        .standings-division {
+            margin-bottom: 20px;
+        }
+
+        .division-name {
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 12px;
+        }
+
+        .standings-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .standings-table th,
+        .standings-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .standings-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .standings-table td {
+            color: var(--text-primary);
+            font-size: 14px;
+        }
+
+        .standings-table tr:hover {
+            background: var(--bg-hover);
+        }
+
+        .team-cell {
+            display: flex;
+            align-items: center;
+        }
+
+        /* Injury Cards */
+        .injury-team-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+        }
+
+        .injury-team-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .injury-team-header h3 {
+            flex: 1;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .injury-count {
+            background: var(--danger);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .injury-list {
+            padding: 8px;
+        }
+
+        .injury-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 16px;
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            background: var(--bg-tertiary);
+        }
+
+        .injury-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .injury-player {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .player-headshot {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: var(--bg-hover);
+        }
+
+        .player-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .player-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .player-position {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .injury-details {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .injury-status {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-out {
+            background: var(--danger);
+            color: white;
+        }
+
+        .status-doubtful {
+            background: #f97316;
+            color: white;
+        }
+
+        .status-questionable {
+            background: var(--warning);
+            color: #000;
+        }
+
+        .status-probable {
+            background: var(--success);
+            color: white;
+        }
+
+        .status-day-to-day {
+            background: var(--primary);
+            color: white;
+        }
+
+        .injury-type {
+            color: var(--text-muted);
+            font-size: 13px;
+        }
+
+        .injury-comment {
+            width: 100%;
+            font-size: 13px;
+            color: var(--text-secondary);
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
@@ -1219,6 +1586,24 @@
                 <a href="#" class="nav-link" data-page="history">
                     <span>📈</span>
                     <span>History</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-page="scores">
+                    <span>🔴</span>
+                    <span>Live Scores</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-page="standings">
+                    <span>🏆</span>
+                    <span>Standings</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-page="injuries">
+                    <span>🏥</span>
+                    <span>Injuries</span>
                 </a>
             </li>
         </ul>
@@ -1360,6 +1745,50 @@
                     <div class="empty-state-icon">📈</div>
                     <p>Search for teams to see comparison history</p>
                 </div>
+            </div>
+        </div>
+
+        <!-- Live Scores Page -->
+        <div class="page-container" id="scoresPage">
+            <div class="scores-header">
+                <div class="league-tabs">
+                    <button class="league-tab active" data-league="nba">NBA</button>
+                    <button class="league-tab" data-league="mens-college-basketball">NCAAM</button>
+                    <button class="league-tab" data-league="nfl">NFL</button>
+                    <button class="league-tab" data-league="nhl">NHL</button>
+                </div>
+                <button class="refresh-btn" onclick="loadScores()" title="Refresh scores">
+                    🔄 Refresh
+                </button>
+            </div>
+            <div id="scoresContainer">
+                <div class="loading-indicator">Loading scores...</div>
+            </div>
+        </div>
+
+        <!-- Standings Page -->
+        <div class="page-container" id="standingsPage">
+            <div class="standings-header">
+                <div class="league-tabs">
+                    <button class="league-tab active" data-league="nba" data-sport="basketball">NBA</button>
+                    <button class="league-tab" data-league="mens-college-basketball" data-sport="basketball">NCAAM</button>
+                    <button class="league-tab" data-league="nfl" data-sport="football">NFL</button>
+                    <button class="league-tab" data-league="nhl" data-sport="hockey">NHL</button>
+                </div>
+            </div>
+            <div id="standingsContainer">
+                <div class="loading-indicator">Loading standings...</div>
+            </div>
+        </div>
+
+        <!-- Injuries Page -->
+        <div class="page-container" id="injuriesPage">
+            <div class="search-bar">
+                <input type="text" class="search-input" id="injurySearch" placeholder="Search by team name..." autocomplete="off">
+                <button class="search-clear" id="injurySearchClear" aria-label="Clear search">×</button>
+            </div>
+            <div id="injuriesContainer">
+                <div class="loading-indicator">Loading injury reports...</div>
             </div>
         </div>
     </main>
@@ -1612,7 +2041,10 @@
             dashboard: 'Matchup Predictor',
             teams: 'NBA Teams',
             matchup: 'Recent Matchups',
-            history: 'Comparison History'
+            history: 'Comparison History',
+            scores: 'Live Scores',
+            standings: 'League Standings',
+            injuries: 'Injury Reports'
         };
 
         function navigateToPage(page) {
@@ -1661,6 +2093,12 @@
                 if (historySearch && historyClear) {
                     historyClear.classList.toggle('visible', historySearch.value.trim().length > 0);
                 }
+            } else if (page === 'scores') {
+                loadScores();
+            } else if (page === 'standings') {
+                loadStandings();
+            } else if (page === 'injuries') {
+                loadInjuries();
             }
         }
 
@@ -2044,6 +2482,278 @@
                     } else if (searchTerm.length === 0) {
                         showEmptyState('historyContainer', '📈', 'Search for teams to see comparison history');
                     }
+                }, 300);
+            });
+        }
+
+        // ==================== ESPN DATA FUNCTIONS ====================
+        
+        let currentScoresLeague = 'nba';
+        let currentStandingsLeague = 'nba';
+        let currentStandingsSport = 'basketball';
+
+        // Load Live Scores
+        async function loadScores(league = null) {
+            if (league) currentScoresLeague = league;
+            const container = document.getElementById('scoresContainer');
+            const sport = currentScoresLeague.includes('college') ? 'basketball' : 
+                          currentScoresLeague === 'nfl' ? 'football' :
+                          currentScoresLeague === 'nhl' ? 'hockey' : 'basketball';
+            
+            container.innerHTML = '<div class="loading-indicator">Loading scores...</div>';
+            
+            try {
+                const response = await fetch(`/espn/scores?sport=${sport}&league=${currentScoresLeague}`);
+                if (!response.ok) throw new Error('Failed to fetch scores');
+                
+                const data = await response.json();
+                displayScores(data.games || []);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadScores()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayScores(games) {
+            const container = document.getElementById('scoresContainer');
+            
+            if (games.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏀</div><p>No games scheduled for today</p></div>';
+                return;
+            }
+            
+            container.innerHTML = games.map(game => `
+                <div class="score-card ${game.status === 'In Progress' ? 'live' : ''}">
+                    <div class="score-status ${game.status === 'In Progress' ? 'live' : game.status === 'Final' ? 'final' : 'scheduled'}">
+                        ${game.status === 'In Progress' ? `🔴 ${game.clock} - Q${game.period}` : game.status}
+                    </div>
+                    <div class="score-teams">
+                        <div class="score-team ${game.away_team.winner ? 'winner' : ''}">
+                            ${game.away_team.logo ? `<img src="${game.away_team.logo}" alt="${game.away_team.abbreviation}" class="team-logo-small">` : ''}
+                            <span class="team-name">${game.away_team.name}</span>
+                            <span class="team-score">${game.away_team.score}</span>
+                        </div>
+                        <div class="score-team ${game.home_team.winner ? 'winner' : ''}">
+                            ${game.home_team.logo ? `<img src="${game.home_team.logo}" alt="${game.home_team.abbreviation}" class="team-logo-small">` : ''}
+                            <span class="team-name">${game.home_team.name}</span>
+                            <span class="team-score">${game.home_team.score}</span>
+                        </div>
+                    </div>
+                    ${game.venue ? `<div class="score-venue">📍 ${game.venue}</div>` : ''}
+                    ${game.broadcast ? `<div class="score-broadcast">📺 ${game.broadcast}</div>` : ''}
+                    ${game.odds ? `<div class="score-odds">Line: ${game.odds.spread || 'N/A'} | O/U: ${game.odds.over_under || 'N/A'}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        // Load Standings
+        async function loadStandings(league = null, sport = null) {
+            if (league) currentStandingsLeague = league;
+            if (sport) currentStandingsSport = sport;
+            const container = document.getElementById('standingsContainer');
+            
+            container.innerHTML = '<div class="loading-indicator">Loading standings...</div>';
+            
+            try {
+                const response = await fetch(`/espn/standings?sport=${currentStandingsSport}&league=${currentStandingsLeague}`);
+                if (!response.ok) throw new Error('Failed to fetch standings');
+                
+                const data = await response.json();
+                displayStandings(data.standings);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadStandings()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayStandings(standings) {
+            const container = document.getElementById('standingsContainer');
+            
+            if (!standings || !standings.conferences || standings.conferences.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏆</div><p>No standings available</p></div>';
+                return;
+            }
+            
+            container.innerHTML = standings.conferences.map(conf => `
+                <div class="standings-conference">
+                    <h3 class="conference-name">${conf.name || 'Conference'}</h3>
+                    ${conf.divisions ? conf.divisions.map(div => `
+                        <div class="standings-division">
+                            <h4 class="division-name">${div.name}</h4>
+                            <table class="standings-table">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Team</th>
+                                        <th>W</th>
+                                        <th>L</th>
+                                        <th>PCT</th>
+                                        <th>GB</th>
+                                        <th>STRK</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${div.teams.map((team, idx) => `
+                                        <tr>
+                                            <td>${idx + 1}</td>
+                                            <td class="team-cell">
+                                                ${team.logo ? `<img src="${team.logo}" alt="${team.abbreviation}" class="team-logo-tiny">` : ''}
+                                                ${team.team_name}
+                                            </td>
+                                            <td>${team.wins}</td>
+                                            <td>${team.losses}</td>
+                                            <td>${(team.win_percent || 0).toFixed(3)}</td>
+                                            <td>${team.games_behind || '-'}</td>
+                                            <td>${team.streak || '-'}</td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    `).join('') : `
+                        <table class="standings-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Team</th>
+                                    <th>W</th>
+                                    <th>L</th>
+                                    <th>PCT</th>
+                                    <th>GB</th>
+                                    <th>STRK</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${(conf.teams || []).map((team, idx) => `
+                                    <tr>
+                                        <td>${idx + 1}</td>
+                                        <td class="team-cell">
+                                            ${team.logo ? `<img src="${team.logo}" alt="${team.abbreviation}" class="team-logo-tiny">` : ''}
+                                            ${team.team_name}
+                                        </td>
+                                        <td>${team.wins}</td>
+                                        <td>${team.losses}</td>
+                                        <td>${(team.win_percent || 0).toFixed(3)}</td>
+                                        <td>${team.games_behind || '-'}</td>
+                                        <td>${team.streak || '-'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    `}
+                </div>
+            `).join('');
+        }
+
+        // Load Injuries
+        async function loadInjuries(teamFilter = '') {
+            const container = document.getElementById('injuriesContainer');
+            
+            container.innerHTML = '<div class="loading-indicator">Loading injury reports...</div>';
+            
+            try {
+                let url = '/espn/injuries?sport=basketball&league=nba';
+                if (teamFilter) url += `&team=${encodeURIComponent(teamFilter)}`;
+                
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch injuries');
+                
+                const data = await response.json();
+                displayInjuries(data.injuries || []);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadInjuries()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayInjuries(injuries) {
+            const container = document.getElementById('injuriesContainer');
+            
+            if (injuries.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>No injuries reported</p></div>';
+                return;
+            }
+            
+            // Group injuries by team
+            const byTeam = {};
+            injuries.forEach(injury => {
+                const team = injury.team || 'Unknown';
+                if (!byTeam[team]) byTeam[team] = [];
+                byTeam[team].push(injury);
+            });
+            
+            container.innerHTML = Object.entries(byTeam).map(([team, teamInjuries]) => `
+                <div class="injury-team-card">
+                    <div class="injury-team-header">
+                        ${teamInjuries[0].team_logo ? `<img src="${teamInjuries[0].team_logo}" alt="${team}" class="team-logo-small">` : ''}
+                        <h3>${team}</h3>
+                        <span class="injury-count">${teamInjuries.length} player${teamInjuries.length > 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="injury-list">
+                        ${teamInjuries.map(injury => `
+                            <div class="injury-item ${(injury.status || '').toLowerCase().replace(' ', '-')}">
+                                <div class="injury-player">
+                                    ${injury.player_headshot ? `<img src="${injury.player_headshot}" alt="${injury.player_name}" class="player-headshot">` : ''}
+                                    <div class="player-info">
+                                        <span class="player-name">${injury.player_name}</span>
+                                        <span class="player-position">${injury.player_position || ''}</span>
+                                    </div>
+                                </div>
+                                <div class="injury-details">
+                                    <span class="injury-status status-${(injury.status || 'unknown').toLowerCase()}">${injury.status || 'Unknown'}</span>
+                                    <span class="injury-type">${injury.injury_type || ''}</span>
+                                </div>
+                                ${injury.short_comment ? `<div class="injury-comment">${injury.short_comment}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Setup league tab listeners
+        document.querySelectorAll('.league-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const parent = e.target.closest('.scores-header, .standings-header');
+                if (!parent) return;
+                
+                parent.querySelectorAll('.league-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                const league = e.target.dataset.league;
+                const sport = e.target.dataset.sport;
+                
+                if (parent.classList.contains('scores-header')) {
+                    loadScores(league);
+                } else if (parent.classList.contains('standings-header')) {
+                    loadStandings(league, sport);
+                }
+            });
+        });
+
+        // Setup injury search
+        setupSearchClear('injurySearch', 'injurySearchClear', 'injuriesContainer');
+        const injurySearch = document.getElementById('injurySearch');
+        if (injurySearch) {
+            let searchTimeout;
+            injurySearch.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value.trim();
+                
+                searchTimeout = setTimeout(() => {
+                    loadInjuries(searchTerm);
                 }, 300);
             });
         }

@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict
+from typing import List, Dict, Optional
 import re
 
 logger = logging.getLogger(__name__)
@@ -9,32 +9,129 @@ class InjuryService:
     """
     Service for fetching NBA player injuries
     
-    Note: Currently uses manual input from context. 
-    Future enhancement: Integrate with free injury API when available.
+    Now integrates with ESPN's hidden API for real injury data.
+    Falls back to context-provided injuries if ESPN data unavailable.
     """
     
     def __init__(self):
-        """Initialize injury service"""
+        """Initialize injury service with ESPN provider"""
         self.logger = logging.getLogger(__name__)
-        self.logger.info("InjuryService initialized - using context-provided injuries")
+        self._espn_provider = None
+        self._init_espn_provider()
+        self.logger.info("InjuryService initialized with ESPN integration")
+    
+    def _init_espn_provider(self):
+        """Lazily initialize ESPN provider"""
+        try:
+            from ..providers.espn_provider import ESPNProvider, Sport, League
+            self._espn_provider = ESPNProvider(sport=Sport.BASKETBALL, league=League.NBA)
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize ESPN provider: {e}")
+            self._espn_provider = None
     
     def fetch_team_injuries(self, team_name: str) -> List[str]:
         """
-        Fetch injuries for a team
-        
-        Currently returns empty list - injuries should be provided via context.
-        This is a placeholder for future API integration.
+        Fetch injuries for a team from ESPN
         
         Args:
             team_name: Name of the team
             
         Returns:
-            List of injury descriptions (currently empty - use context injuries)
+            List of injury descriptions in format "Player Name - Status (Reason)"
         """
-        # TODO: Integrate with free injury API when available
-        # For now, return empty list and rely on context-provided injuries
-        self.logger.debug("InjuryService.fetch_team_injuries called for %s - using context injuries", team_name)
-        return []
+        if not self._espn_provider:
+            self.logger.debug("ESPN provider not available, returning empty injuries")
+            return []
+        
+        try:
+            injuries = self._espn_provider.get_team_injuries(team_name)
+            
+            injury_strings = []
+            for injury in injuries:
+                player = injury.get("player_name", "Unknown")
+                status = injury.get("status", "Unknown")
+                injury_type = injury.get("injury_type", "")
+                
+                if injury_type:
+                    injury_strings.append(f"{player} - {status} ({injury_type})")
+                else:
+                    injury_strings.append(f"{player} - {status}")
+            
+            self.logger.info(f"Found {len(injury_strings)} injuries for {team_name}")
+            return injury_strings
+            
+        except Exception as e:
+            self.logger.error(f"Error fetching injuries for {team_name}: {e}")
+            return []
+    
+    def fetch_all_injuries(self) -> List[Dict[str, any]]:
+        """
+        Fetch all injuries across the league
+        
+        Returns:
+            List of injury dictionaries with full details
+        """
+        if not self._espn_provider:
+            return []
+        
+        try:
+            return self._espn_provider.get_injuries()
+        except Exception as e:
+            self.logger.error(f"Error fetching all injuries: {e}")
+            return []
+    
+    def get_injury_report(self, team_name: str) -> Dict[str, List[Dict]]:
+        """
+        Get a structured injury report for a team
+        
+        Args:
+            team_name: Name of the team
+            
+        Returns:
+            Dictionary with injuries grouped by status
+        """
+        if not self._espn_provider:
+            return {"out": [], "doubtful": [], "questionable": [], "probable": []}
+        
+        try:
+            injuries = self._espn_provider.get_team_injuries(team_name)
+            
+            report = {
+                "out": [],
+                "doubtful": [],
+                "questionable": [],
+                "probable": [],
+                "day_to_day": []
+            }
+            
+            for injury in injuries:
+                status = injury.get("status", "").lower()
+                
+                injury_info = {
+                    "player": injury.get("player_name"),
+                    "position": injury.get("player_position"),
+                    "injury": injury.get("injury_type"),
+                    "detail": injury.get("injury_detail"),
+                    "return_date": injury.get("return_date"),
+                    "comment": injury.get("short_comment")
+                }
+                
+                if "out" in status:
+                    report["out"].append(injury_info)
+                elif "doubtful" in status:
+                    report["doubtful"].append(injury_info)
+                elif "questionable" in status:
+                    report["questionable"].append(injury_info)
+                elif "probable" in status:
+                    report["probable"].append(injury_info)
+                else:
+                    report["day_to_day"].append(injury_info)
+            
+            return report
+            
+        except Exception as e:
+            self.logger.error(f"Error getting injury report for {team_name}: {e}")
+            return {"out": [], "doubtful": [], "questionable": [], "probable": [], "day_to_day": []}
     
     def parse_injury_string(self, injury_string: str) -> Dict[str, str]:
         """

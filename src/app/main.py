@@ -3,7 +3,7 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from .routes import health, compare, teams, history, matchup
+from .routes import health, compare, teams, history, matchup, espn
 
 # Configure logging
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -21,6 +21,7 @@ app.include_router(compare.router)
 app.include_router(teams.router)
 app.include_router(history.router)
 app.include_router(matchup.router)
+app.include_router(espn.router)
 
 # Mount static files
 try:
