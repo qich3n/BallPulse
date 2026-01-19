@@ -1,8 +1,9 @@
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 from ..services.history_service import HistoryService
+from ..services.rate_limiter import limiter, RATE_LIMITS
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ class HistoryResponse(BaseModel):
 
 
 @router.get("", response_model=HistoryResponse)
+@limiter.limit(RATE_LIMITS["history"])
 async def get_history(
+    request: Request,
     limit: int = Query(50, ge=1, le=200, description="Maximum number of entries to return"),
     team1: Optional[str] = Query(None, description="Filter by team1 name"),
     team2: Optional[str] = Query(None, description="Filter by team2 name")
@@ -38,6 +41,7 @@ async def get_history(
     Get comparison history
     
     Args:
+        request: FastAPI request object (for rate limiting)
         limit: Maximum number of entries to return (1-200)
         team1: Optional filter by team1 name
         team2: Optional filter by team2 name

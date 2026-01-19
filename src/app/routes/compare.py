@@ -1,14 +1,17 @@
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from ..services.cache_service import CacheService
 from ..services.scoring_service import ScoringService
 from ..services.proscons_service import ProsConsService
 from ..services.sentiment_service import SentimentService
-from ..services.reddit_service import RedditService
+from ..services.async_reddit_service import AsyncRedditService
 from ..services.injury_service import InjuryService
 from ..services.history_service import HistoryService
+from ..services.rate_limiter import limiter, RATE_LIMITS
 from ..providers.basketball_provider import BasketballProvider
 from ..utils.team_normalizer import TeamNormalizer
 
@@ -21,7 +24,7 @@ cache_service = CacheService(default_ttl=3600)  # 1 hour TTL
 scoring_service = ScoringService()
 proscons_service = ProsConsService()
 sentiment_service = SentimentService()
-reddit_service = RedditService(cache_service=cache_service)
+async_reddit_service = AsyncRedditService(cache_service=cache_service)
 injury_service = InjuryService()
 basketball_provider = BasketballProvider()
 history_service = HistoryService()
@@ -136,10 +139,10 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
         team2_stats = basketball_provider._get_placeholder_stats(team2_name)
     
     try:
-        # Get Reddit data
+        # Get Reddit data (async)
         logger.info("Fetching Reddit data for %s and %s", team1_name, team2_name)
-        team1_reddit_posts = reddit_service.fetch_team_posts(team1_name, limit=10, include_comments=True)
-        team2_reddit_posts = reddit_service.fetch_team_posts(team2_name, limit=10, include_comments=True)
+        team1_reddit_posts = await async_reddit_service.fetch_team_posts(team1_name, limit=10, include_comments=True)
+        team2_reddit_posts = await async_reddit_service.fetch_team_posts(team2_name, limit=10, include_comments=True)
         logger.debug("Reddit posts retrieved: team1=%d, team2=%d", len(team1_reddit_posts), len(team2_reddit_posts))
     except Exception as e:
         logger.warning("Error fetching Reddit data: %s, continuing without Reddit data", e)
@@ -242,12 +245,14 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
 
 
 @router.post("", response_model=CompareResponse)
-async def compare(request: CompareRequest) -> CompareResponse:
+@limiter.limit(RATE_LIMITS["compare"])
+async def compare(request: Request, body: CompareRequest) -> CompareResponse:
     """
     Compare endpoint with caching and full analysis
     
     Args:
-        request: CompareRequest with team names and optional context
+        request: FastAPI request object (for rate limiting)
+        body: CompareRequest with team names and optional context
         
     Returns:
         CompareResponse with complete team analysis
@@ -255,21 +260,21 @@ async def compare(request: CompareRequest) -> CompareResponse:
     Raises:
         HTTPException: If comparison fails
     """
-    logger.info("Compare endpoint called: %s vs %s (%s)", request.team1, request.team2, request.sport)
+    logger.info("Compare endpoint called: %s vs %s (%s)", body.team1, body.team2, body.sport)
     
     # Validate sport (currently only basketball supported)
-    if request.sport.lower() != "basketball":
-        logger.warning("Unsupported sport requested: %s", request.sport)
+    if body.sport.lower() != "basketball":
+        logger.warning("Unsupported sport requested: %s", body.sport)
         raise HTTPException(
             status_code=400,
-            detail=f"Sport '{request.sport}' is not supported. Currently only 'basketball' is supported."
+            detail=f"Sport '{body.sport}' is not supported. Currently only 'basketball' is supported."
         )
     
     # Normalize team names (e.g., "celtics" -> "Boston Celtics", "lakers" -> "Los Angeles Lakers")
-    original_team1 = request.team1
-    original_team2 = request.team2
-    normalized_team1 = TeamNormalizer.normalize(request.team1)
-    normalized_team2 = TeamNormalizer.normalize(request.team2)
+    original_team1 = body.team1
+    original_team2 = body.team2
+    normalized_team1 = TeamNormalizer.normalize(body.team1)
+    normalized_team2 = TeamNormalizer.normalize(body.team2)
     
     # Log normalization if it changed
     if original_team1 != normalized_team1:
@@ -278,16 +283,16 @@ async def compare(request: CompareRequest) -> CompareResponse:
         logger.info("Normalized team2: '%s' -> '%s'", original_team2, normalized_team2)
     
     # Update request with normalized names for processing
-    request.team1 = normalized_team1
-    request.team2 = normalized_team2
+    body.team1 = normalized_team1
+    body.team2 = normalized_team2
     
     # Extract date from context if available
-    date = request.context.gameDate if request.context else None
+    date = body.context.gameDate if body.context else None
     
     try:
         # Check cache (using normalized names to ensure cache hits for same teams)
         cached_response = cache_service.get(
-            sport=request.sport,
+            sport=body.sport,
             team1=normalized_team1,
             team2=normalized_team2,
             date=date
@@ -302,12 +307,12 @@ async def compare(request: CompareRequest) -> CompareResponse:
     try:
         # Generate analysis using all services (with normalized names)
         logger.info("Cache miss - generating new analysis for %s vs %s", normalized_team1, normalized_team2)
-        response = await _generate_analysis(request)
+        response = await _generate_analysis(body)
         
         # Cache the response (using normalized names)
         try:
             cache_service.set(
-                sport=request.sport,
+                sport=body.sport,
                 team1=normalized_team1,
                 team2=normalized_team2,
                 value=response,
@@ -321,7 +326,7 @@ async def compare(request: CompareRequest) -> CompareResponse:
             history_service.add_comparison(
                 team1=normalized_team1,
                 team2=normalized_team2,
-                sport=request.sport,
+                sport=body.sport,
                 result=response.dict() if hasattr(response, 'dict') else response
             )
         except Exception as e:

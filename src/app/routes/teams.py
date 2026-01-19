@@ -1,8 +1,9 @@
 import logging
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from ..providers.basketball_provider import BasketballProvider
+from ..services.rate_limiter import limiter, RATE_LIMITS
 from nba_api.stats.static import teams
 
 logger = logging.getLogger(__name__)
@@ -31,11 +32,13 @@ class TeamListResponse(BaseModel):
 
 
 @router.get("", response_model=TeamListResponse)
-async def get_teams(include_stats: bool = False) -> TeamListResponse:
+@limiter.limit(RATE_LIMITS["teams"])
+async def get_teams(request: Request, include_stats: bool = False) -> TeamListResponse:
     """
     Get list of all NBA teams
     
     Args:
+        request: FastAPI request object (for rate limiting)
         include_stats: Whether to include current season stats for each team
         
     Returns:

@@ -1,9 +1,12 @@
 import logging
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from .routes import health, compare, teams, history, matchup, espn
+from .services.rate_limiter import limiter
 
 # Configure logging
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -14,6 +17,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="BallPulse", version="1.0.0")
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+
+# Add rate limit exceeded handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Include routers
 app.include_router(health.router)
