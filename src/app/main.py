@@ -1,5 +1,6 @@
 import logging
 import os
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -16,7 +17,31 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="BallPulse", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Modern lifespan context manager for startup/shutdown events.
+    Replaces deprecated @app.on_event decorators.
+    """
+    # Startup
+    logger.info("BallPulse application starting up...")
+    logger.info(f"Log level: {log_level}")
+    logger.info("BallPulse application started successfully")
+    
+    yield  # Application runs here
+    
+    # Shutdown
+    logger.info("BallPulse application shutting down...")
+    logger.info("BallPulse application shutdown complete")
+
+
+app = FastAPI(
+    title="BallPulse",
+    version="1.0.0",
+    description="AI-powered NBA matchup predictor with sentiment analysis",
+    lifespan=lifespan
+)
 
 # Add rate limiter to app state
 app.state.limiter = limiter
@@ -46,12 +71,4 @@ async def read_root():
         return FileResponse("static/index.html")
     except FileNotFoundError:
         return {"message": "Frontend not found. API is available at /docs"}
-
-@app.on_event("startup")
-async def startup_event():
-    logger.info("BallPulse application started")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    logger.info("BallPulse application shutting down")
 
