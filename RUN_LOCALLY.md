@@ -5,8 +5,13 @@ This guide will walk you through setting up and running the BallPulse applicatio
 ## Quick Start Options
 
 You can run BallPulse in two ways:
-1. **Using Docker** (Recommended - No Python installation needed)
-2. **Using Python Virtual Environment** (Traditional method)
+
+| Method | Best For | Requirements |
+|--------|----------|--------------|
+| **Docker** | Quick setup, consistent environment | Docker & Docker Compose |
+| **Python venv** | Development, customization | Python 3.11+, pip, venv |
+
+**Recommendation:** Use Docker for the fastest setup. Use Python venv if you're actively developing.
 
 ---
 
@@ -16,6 +21,14 @@ You can run BallPulse in two ways:
 
 - Docker installed on your system
 - Docker Compose (usually included with Docker Desktop)
+
+**Verify Docker installation:**
+```bash
+docker --version
+docker-compose --version
+```
+
+If not installed, download from [docker.com](https://www.docker.com/get-started)
 
 ### Step-by-Step Docker Setup
 
@@ -82,6 +95,21 @@ docker-compose logs -f
 docker-compose up --build
 ```
 
+**Run in Background (Detached Mode):**
+```bash
+docker-compose up -d
+```
+
+**Stop Background Container:**
+```bash
+docker-compose down
+```
+
+**Run Tests in Docker:**
+```bash
+docker-compose exec ballpulse pytest
+```
+
 ---
 
 ## Option 2: Running with Python Virtual Environment
@@ -132,9 +160,17 @@ You should see `(venv)` in your terminal prompt, indicating the virtual environm
 
 Install all required Python packages:
 
+**Option 1: Using pip (standard)**
 ```bash
 pip install -r requirements.txt
 ```
+
+**Option 2: Using Makefile (simpler)**
+```bash
+make install
+```
+
+Both methods will install the same dependencies.
 
 This will install:
 - FastAPI and Uvicorn (web framework and server)
@@ -176,7 +212,12 @@ uvicorn app.main:app --reload
 
 The `--reload` flag enables auto-reload on code changes, which is useful during development.
 
-The `--reload` flag enables auto-reload on code changes, which is useful during development.
+**Alternative: Using Makefile (Simpler)**
+```bash
+make run
+```
+
+This is equivalent to `uvicorn src.app.main:app --reload` and requires the virtual environment to be activated.
 
 You should see output like:
 ```
@@ -232,23 +273,26 @@ Once running (via Docker or Python), the application will be available at:
 
 ## Running Tests
 
-To run the test suite:
-
+**Using pytest directly:**
 ```bash
-pytest
+pytest              # Run all tests
+pytest -v           # Verbose output
+pytest tests/test_health.py  # Run specific test file
 ```
 
-To run with verbose output:
-
+**Using Makefile (simpler):**
 ```bash
-pytest -v
+make test           # Run all tests
+make test-verbose   # Run with verbose output
 ```
 
-To run a specific test file:
-
+**Verify Installation:**
+After installation, run a quick test to verify everything works:
 ```bash
-pytest tests/test_health.py
+pytest tests/test_health.py -v
 ```
+
+You should see the health check test pass.
 
 ## Stopping the Application
 
@@ -260,6 +304,28 @@ When you're done working, deactivate the virtual environment:
 
 ```bash
 deactivate
+```
+
+## Common Commands Quick Reference
+
+### Docker Commands
+```bash
+docker-compose up --build    # Build and start
+docker-compose up -d         # Start in background
+docker-compose down          # Stop
+docker-compose logs -f       # View logs
+docker-compose exec ballpulse pytest  # Run tests
+```
+
+### Python venv Commands
+```bash
+source venv/bin/activate     # Activate (macOS/Linux)
+venv\Scripts\activate        # Activate (Windows)
+make install                 # Install dependencies
+make run                     # Run application
+make test                    # Run tests
+make clean                   # Clean cache
+deactivate                   # Deactivate venv
 ```
 
 ## Troubleshooting
@@ -275,9 +341,16 @@ uvicorn src.app.main:app --reload --port 8001
 ### Import Errors
 
 If you see import errors, make sure:
-1. The virtual environment is activated
-2. All dependencies are installed: `pip install -r requirements.txt`
+1. The virtual environment is activated (you should see `(venv)` in your prompt)
+2. All dependencies are installed: `pip install -r requirements.txt` or `make install`
 3. You're in the project root directory
+4. Python version is 3.11 or higher: `python3.11 --version`
+
+**Quick fix:**
+```bash
+# Reinstall dependencies
+pip install --upgrade -r requirements.txt
+```
 
 ### Cache Directory
 
@@ -301,8 +374,16 @@ Reddit's public JSON endpoints work without authentication. If you want to use P
 
 ## Next Steps
 
-- Explore the API documentation at http://localhost:8000/docs
-- Try different team comparisons
-- Check the logs for cache hits/misses and API calls
-- Review the test files to understand the API behavior
+- ✅ **Verify installation:** Run `pytest tests/test_health.py` to confirm everything works
+- 📚 **Explore API docs:** Visit http://localhost:8000/docs for interactive API documentation
+- 🏀 **Try team comparisons:** Use the frontend at http://localhost:8000/ or test the API directly
+- 📊 **Check logs:** Monitor cache hits/misses and API calls in the terminal output
+- 🧪 **Review tests:** Check `tests/` directory to understand expected API behavior
+- 🔍 **Test endpoints:** Try the `/teams`, `/matchup`, and `/history` endpoints
+
+## Additional Resources
+
+- **Project README:** See `README.md` for API examples and project overview
+- **Makefile commands:** Run `make help` to see all available commands
+- **API Documentation:** Full Swagger UI available at http://localhost:8000/docs when running
 
