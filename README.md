@@ -208,20 +208,7 @@ Optional environment variables:
 
 ## Troubleshooting
 
-### Port Already in Use
-
-If port 8000 is already in use:
-
-```bash
-uvicorn src.app.main:app --reload --port 8001
-```
-
-### Import Errors
-
-If you see import errors:
-1. Ensure virtual environment is activated: `source venv/bin/activate`
-2. Verify dependencies are installed: `pip install -r requirements.txt`
-3. Make sure you're in the project root directory
+For run-related issues (port in use, import errors, virtual environment, dependencies), see **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
 
 ### NBA API Rate Limits
 
@@ -247,15 +234,6 @@ When ESPN API integration is implemented:
 If you experience stale data:
 - Clear the cache directory: `rm -rf .cache`
 - Reduce cache TTL in the code if needed
-
-### Module Not Found Errors
-
-Ensure you're using the correct Python version (3.11+) and all dependencies are installed:
-
-```bash
-python3.11 --version
-pip install -r requirements.txt
-```
 
 ## Disclaimer
 
@@ -364,36 +342,4 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 
 ## Running with Docker
 
-You can run BallPulse without installing Python locally by using Docker.
-
-### Build the image
-
-```bash
-docker build -t ballpulse:latest .
-```
-
-### Run the container
-
-```bash
-docker run --rm -p 8000:8000 ballpulse:latest
-```
-
-Then open:
-- Frontend UI: http://localhost:8000/
-- API Docs: http://localhost:8000/docs
-
-### Using docker-compose
-
-```bash
-docker-compose up --build
-```
-
-This will:
-- Build the Docker image
-- Start the BallPulse service on port 8000
-
-To stop:
-
-```bash
-docker-compose down
-```
+For Docker and docker-compose setup, build steps, and troubleshooting, see **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
