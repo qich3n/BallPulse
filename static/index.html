@@ -1039,6 +1039,178 @@
             font-weight: 500;
         }
 
+        /* History Tabs */
+        .history-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .history-tab {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .history-tab:hover {
+            border-color: var(--primary);
+            color: var(--text-primary);
+        }
+
+        .history-tab.active {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        /* Team Game History */
+        .game-history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        .game-history-item {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: all 0.2s ease;
+        }
+
+        .game-history-item:hover {
+            border-color: var(--border-light);
+        }
+
+        .game-history-item.win {
+            border-left: 4px solid var(--success);
+        }
+
+        .game-history-item.loss {
+            border-left: 4px solid var(--danger);
+        }
+
+        .game-history-item.scheduled {
+            border-left: 4px solid var(--text-muted);
+        }
+
+        .game-info {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            flex: 1;
+        }
+
+        .game-date {
+            font-size: 12px;
+            color: var(--text-muted);
+            min-width: 80px;
+        }
+
+        .game-opponent {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .game-opponent img {
+            width: 32px;
+            height: 32px;
+            object-fit: contain;
+        }
+
+        .game-opponent-name {
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .game-location {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .game-result {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .game-score {
+            font-weight: 600;
+            font-size: 16px;
+        }
+
+        .game-score.win {
+            color: var(--success);
+        }
+
+        .game-score.loss {
+            color: var(--danger);
+        }
+
+        .game-outcome {
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .game-outcome.win {
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--success);
+        }
+
+        .game-outcome.loss {
+            background: rgba(239, 68, 68, 0.15);
+            color: var(--danger);
+        }
+
+        .team-record-summary {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .team-record-logo {
+            width: 64px;
+            height: 64px;
+            object-fit: contain;
+        }
+
+        .team-record-info h3 {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .team-record-stats {
+            display: flex;
+            gap: 16px;
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .team-record-stats span {
+            padding: 4px 10px;
+            background: var(--bg-tertiary);
+            border-radius: 6px;
+        }
+
         .empty-state {
             text-align: center;
             padding: 80px 32px;
@@ -2147,15 +2319,37 @@
 
         <!-- History Page -->
         <div class="page-container" id="historyPage">
-            <div class="search-bar">
-                <input type="text" class="search-input" id="historySearch" placeholder="Search by team name or 'Team1 vs Team2'..." autocomplete="off">
-                <button class="search-clear" id="historySearchClear" aria-label="Clear search">×</button>
+            <div class="history-tabs">
+                <button class="history-tab active" data-tab="comparisons">Comparisons</button>
+                <button class="history-tab" data-tab="team-history">Team Game History</button>
             </div>
-            <div id="historyResultCount" class="result-count" style="display: none;"></div>
-            <div id="historyContainer">
-                <div class="empty-state">
-                    <div class="empty-state-icon">📈</div>
-                    <p>Search for teams to see comparison history</p>
+            
+            <!-- Comparisons Tab -->
+            <div id="comparisonsTab" class="history-tab-content">
+                <div class="search-bar">
+                    <input type="text" class="search-input" id="historySearch" placeholder="Search by team name or 'Team1 vs Team2'..." autocomplete="off">
+                    <button class="search-clear" id="historySearchClear" aria-label="Clear search">×</button>
+                </div>
+                <div id="historyResultCount" class="result-count" style="display: none;"></div>
+                <div id="historyContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📈</div>
+                        <p>Search for teams to see comparison history</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Team History Tab -->
+            <div id="teamHistoryTab" class="history-tab-content" style="display: none;">
+                <div class="search-bar">
+                    <input type="text" class="search-input" id="teamHistorySearch" placeholder="Enter team name (e.g., Lakers, Celtics, Warriors)..." autocomplete="off">
+                    <button class="search-clear" id="teamHistorySearchClear" aria-label="Clear search">×</button>
+                </div>
+                <div id="teamHistoryContainer">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🏀</div>
+                        <p>Search for a team to see their recent games and results</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2959,6 +3153,162 @@
                     }
                 }, 300);
             });
+        }
+
+        // History Tab Switching
+        document.querySelectorAll('.history-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                
+                // Update active tab
+                document.querySelectorAll('.history-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                // Show/hide tab content
+                if (tabName === 'comparisons') {
+                    document.getElementById('comparisonsTab').style.display = 'block';
+                    document.getElementById('teamHistoryTab').style.display = 'none';
+                } else {
+                    document.getElementById('comparisonsTab').style.display = 'none';
+                    document.getElementById('teamHistoryTab').style.display = 'block';
+                }
+            });
+        });
+
+        // Team History Search Setup
+        setupSearchClear('teamHistorySearch', 'teamHistorySearchClear', 'teamHistoryContainer');
+        const teamHistorySearch = document.getElementById('teamHistorySearch');
+        if (teamHistorySearch) {
+            let searchTimeout;
+            teamHistorySearch.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                const searchTerm = e.target.value.trim();
+                
+                searchTimeout = setTimeout(() => {
+                    if (searchTerm.length >= 2) {
+                        loadTeamGameHistory(searchTerm);
+                    } else if (searchTerm.length === 0) {
+                        showEmptyState('teamHistoryContainer', '🏀', 'Search for a team to see their recent games and results');
+                    }
+                }, 300);
+            });
+            
+            teamHistorySearch.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const searchTerm = e.target.value.trim();
+                    if (searchTerm.length >= 2) {
+                        loadTeamGameHistory(searchTerm);
+                    }
+                }
+            });
+        }
+
+        // Load Team Game History
+        async function loadTeamGameHistory(teamName) {
+            const container = document.getElementById('teamHistoryContainer');
+            
+            container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Loading game history...</p></div>';
+            
+            try {
+                // Fetch team info and schedule
+                const [teamResponse, scheduleResponse] = await Promise.all([
+                    fetch(`/espn/teams/${encodeURIComponent(teamName)}?sport=basketball&league=nba`),
+                    fetch(`/espn/teams/${encodeURIComponent(teamName)}/schedule?sport=basketball&league=nba`)
+                ]);
+                
+                if (!teamResponse.ok) throw new Error('Team not found');
+                if (!scheduleResponse.ok) throw new Error('Failed to fetch schedule');
+                
+                const teamData = await teamResponse.json();
+                const scheduleData = await scheduleResponse.json();
+                
+                displayTeamGameHistory(teamData.team, scheduleData.schedule);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadTeamGameHistory(document.getElementById('teamHistorySearch').value.trim())">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayTeamGameHistory(team, schedule) {
+            const container = document.getElementById('teamHistoryContainer');
+            
+            if (!schedule || schedule.length === 0) {
+                container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📅</div><p>No games found for this team</p></div>';
+                return;
+            }
+            
+            // Calculate record from completed games
+            const completedGames = schedule.filter(g => g.result);
+            const wins = completedGames.filter(g => g.result?.winner).length;
+            const losses = completedGames.length - wins;
+            
+            // Sort games - most recent first, then upcoming
+            const now = new Date();
+            const pastGames = schedule.filter(g => new Date(g.date) < now).sort((a, b) => new Date(b.date) - new Date(a.date));
+            const upcomingGames = schedule.filter(g => new Date(g.date) >= now).sort((a, b) => new Date(a.date) - new Date(b.date));
+            
+            container.innerHTML = `
+                <div class="team-record-summary">
+                    ${team.logo ? `<img src="${team.logo}" alt="${team.abbreviation}" class="team-record-logo">` : ''}
+                    <div class="team-record-info">
+                        <h3>${team.display_name || team.name}</h3>
+                        <div class="team-record-stats">
+                            <span><strong>${wins}</strong> Wins</span>
+                            <span><strong>${losses}</strong> Losses</span>
+                            <span><strong>${completedGames.length > 0 ? (wins / completedGames.length * 100).toFixed(1) : 0}%</strong> Win Rate</span>
+                        </div>
+                    </div>
+                </div>
+                
+                ${upcomingGames.length > 0 ? `
+                    <h4 style="color: var(--text-secondary); margin-bottom: 12px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Upcoming Games</h4>
+                    <div class="game-history-list">
+                        ${upcomingGames.slice(0, 5).map(game => renderGameHistoryItem(game, false)).join('')}
+                    </div>
+                ` : ''}
+                
+                ${pastGames.length > 0 ? `
+                    <h4 style="color: var(--text-secondary); margin: 24px 0 12px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Recent Results</h4>
+                    <div class="game-history-list">
+                        ${pastGames.slice(0, 15).map(game => renderGameHistoryItem(game, true)).join('')}
+                    </div>
+                ` : ''}
+            `;
+        }
+
+        function renderGameHistoryItem(game, isPast) {
+            const gameDate = new Date(game.date);
+            const dateStr = gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const isWin = game.result?.winner;
+            const isLoss = game.result && !game.result.winner;
+            const statusClass = isWin ? 'win' : (isLoss ? 'loss' : 'scheduled');
+            
+            return `
+                <div class="game-history-item ${statusClass}">
+                    <div class="game-info">
+                        <div class="game-date">${dateStr}</div>
+                        <div class="game-opponent">
+                            ${game.opponent?.logo ? `<img src="${game.opponent.logo}" alt="${game.opponent.abbreviation}">` : ''}
+                            <div>
+                                <div class="game-opponent-name">${game.home_away === 'away' ? '@' : 'vs'} ${game.opponent?.name || 'TBD'}</div>
+                                <div class="game-location">${game.home_away === 'home' ? 'Home' : 'Away'}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="game-result">
+                        ${game.result ? `
+                            <span class="game-score ${statusClass}">${game.result.score}</span>
+                            <span class="game-outcome ${statusClass}">${isWin ? 'W' : 'L'}</span>
+                        ` : `
+                            <span style="color: var(--text-muted); font-size: 13px;">${game.status || 'Scheduled'}</span>
+                        `}
+                    </div>
+                </div>
+            `;
         }
 
         // ==================== ESPN DATA FUNCTIONS ====================
