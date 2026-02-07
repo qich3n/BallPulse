@@ -507,7 +507,8 @@ class ESPNProvider:
         Returns:
             Dictionary with standings organized by conference/division
         """
-        url = self._build_url("standings")
+        # Standings uses a different API path
+        url = f"https://site.api.espn.com/apis/v2/sports/{self.sport.value}/{self.league.value}/standings"
         data = self._fetch_sync(url)
         
         if not data:
@@ -547,8 +548,11 @@ class ESPNProvider:
             stats = entry.get("stats", [])
             stats_dict = {s.get("name"): s.get("value") for s in stats}
             
+            # Get playoff seed for proper ranking
+            playoff_seed = int(stats_dict.get("playoffSeed", 99))
+            
             teams.append({
-                "rank": len(teams) + 1,
+                "rank": playoff_seed,
                 "team_id": team.get("id"),
                 "team_name": team.get("displayName"),
                 "abbreviation": team.get("abbreviation"),
@@ -559,12 +563,15 @@ class ESPNProvider:
                 "games_behind": stats_dict.get("gamesBehind", 0),
                 "home_record": stats_dict.get("home", ""),
                 "away_record": stats_dict.get("away", ""),
-                "streak": stats_dict.get("streak", 0),
+                "streak": int(stats_dict.get("streak", 0)),
                 "last_10": stats_dict.get("last10", ""),
                 "points_for": stats_dict.get("pointsFor", 0),
                 "points_against": stats_dict.get("pointsAgainst", 0),
                 "differential": stats_dict.get("differential", 0)
             })
+        
+        # Sort by playoff seed (rank)
+        teams.sort(key=lambda x: x["rank"])
         
         return teams
 
