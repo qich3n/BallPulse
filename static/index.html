@@ -3222,7 +3222,8 @@
                 const teamData = await teamResponse.json();
                 const scheduleData = await scheduleResponse.json();
                 
-                displayTeamGameHistory(teamData.team, scheduleData.schedule);
+                // Team data is returned directly, not wrapped in .team
+                displayTeamGameHistory(teamData, scheduleData.schedule);
             } catch (error) {
                 container.innerHTML = `
                     <div class="error-message">
