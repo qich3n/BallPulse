@@ -169,12 +169,20 @@ class ESPNProvider:
     
     def get_today_scores(self) -> List[Dict[str, Any]]:
         """
-        Get today's scores in a simplified format
+        Get today's scores in a simplified format.
+        Uses US Eastern timezone since that's what ESPN/NBA uses for game dates.
         
         Returns:
             List of game dictionaries with scores, teams, status
         """
-        scoreboard = self.get_scoreboard()
+        from datetime import datetime
+        import pytz
+        
+        # Use Eastern Time since ESPN/NBA uses ET for game dates
+        eastern = pytz.timezone('US/Eastern')
+        today_et = datetime.now(eastern).strftime("%Y%m%d")
+        
+        scoreboard = self.get_scoreboard(date=today_et)
         games = []
         
         for event in scoreboard.get("events", []):

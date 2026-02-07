@@ -294,9 +294,13 @@ async def get_todays_games(request: Request):
     - Comparison between our prediction and Vegas lines
     """
     try:
-        # Get today's scores from ESPN
+        # Get today's scores from ESPN (uses Eastern Time)
         today_scores = espn_provider.get_today_scores()
-        today_str = datetime.now().strftime("%Y-%m-%d")
+        
+        # Use Eastern Time for the date display (matches ESPN/NBA)
+        import pytz
+        eastern = pytz.timezone('US/Eastern')
+        today_str = datetime.now(eastern).strftime("%Y-%m-%d")
         
         games = []
         predictions_generated = 0
