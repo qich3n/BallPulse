@@ -73,6 +73,7 @@ class GamePrediction(BaseModel):
     win_probability: float
     confidence: str
     odds: Optional[OddsComparison] = None
+    reasoning: List[str] = Field(default_factory=list, description="Reasons for the prediction")
 
 
 class TodaysGamesResponse(BaseModel):
@@ -130,6 +131,82 @@ def _calculate_team_score(team_name: str) -> float:
     except Exception as e:
         logger.warning(f"Error calculating score for {team_name}: {e}")
         return 0.5
+
+
+def _generate_reasoning(
+    winner_name: str,
+    loser_name: str,
+    winner_score: float,
+    loser_score: float,
+    win_probability: float,
+    is_home: bool,
+    odds: Optional[OddsComparison] = None
+) -> List[str]:
+    """
+    Generate human-readable reasoning for why we picked a team.
+    
+    Args:
+        winner_name: Name of predicted winner
+        loser_name: Name of predicted loser  
+        winner_score: Winner's strength score (0-1)
+        loser_score: Loser's strength score (0-1)
+        win_probability: Calculated win probability
+        is_home: Whether winner is home team
+        odds: Optional odds comparison data
+    
+    Returns:
+        List of reasoning strings
+    """
+    reasons = []
+    
+    # Strength comparison
+    strength_diff = (winner_score - loser_score) * 100
+    if strength_diff > 15:
+        reasons.append(f"📊 {winner_name} has a significantly stronger overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
+    elif strength_diff > 8:
+        reasons.append(f"📊 {winner_name} has a better overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
+    elif strength_diff > 3:
+        reasons.append(f"📊 {winner_name} has a slight edge in overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
+    else:
+        reasons.append(f"📊 Both teams are closely matched in strength ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
+    
+    # Home court advantage
+    if is_home:
+        reasons.append(f"🏠 {winner_name} has home court advantage (+3% boost)")
+    else:
+        reasons.append(f"✈️ {winner_name} playing on the road but still favored due to stronger stats")
+    
+    # Win probability context
+    if win_probability >= 0.70:
+        reasons.append(f"💪 High confidence pick with {win_probability*100:.0f}% win probability")
+    elif win_probability >= 0.60:
+        reasons.append(f"👍 Solid pick with {win_probability*100:.0f}% win probability")
+    elif win_probability >= 0.55:
+        reasons.append(f"🤔 Close matchup - {win_probability*100:.0f}% win probability")
+    else:
+        reasons.append(f"⚖️ Very close game - essentially a toss-up at {win_probability*100:.0f}%")
+    
+    # Vegas comparison if available
+    if odds:
+        if not odds.agreement:
+            reasons.append(f"⚠️ We disagree with Vegas who favors {odds.vegas_favorite}")
+            if odds.edge_score and odds.edge_score > 0:
+                reasons.append(f"💰 Potential value bet - {abs(odds.edge_score):.1f}% edge over Vegas")
+        elif odds.edge_score and odds.edge_score > 5:
+            reasons.append(f"💰 We agree with Vegas but are MORE confident - {odds.edge_score:.1f}% edge")
+        elif odds.vegas_favorite:
+            reasons.append(f"✅ Our pick aligns with Vegas favorite")
+        
+        if odds.spread is not None:
+            spread_abs = abs(odds.spread)
+            if spread_abs > 10:
+                reasons.append(f"📈 Vegas expects a blowout ({spread_abs:.1f} point spread)")
+            elif spread_abs > 5:
+                reasons.append(f"📉 Vegas expects a comfortable win ({spread_abs:.1f} point spread)")
+            else:
+                reasons.append(f"🎯 Vegas expects a close game ({spread_abs:.1f} point spread)")
+    
+    return reasons
 
 
 def _get_confidence_label(probability: float) -> str:
@@ -336,6 +413,18 @@ async def get_todays_games(request: Request):
                 win_probability
             )
             
+            # Generate reasoning for the pick
+            winner_is_home = predicted_winner == home_name
+            reasoning = _generate_reasoning(
+                winner_name=predicted_winner,
+                loser_name=away_name if winner_is_home else home_name,
+                winner_score=home_score if winner_is_home else away_score,
+                loser_score=away_score if winner_is_home else home_score,
+                win_probability=win_probability,
+                is_home=winner_is_home,
+                odds=odds_comparison
+            )
+            
             game_prediction = GamePrediction(
                 game_id=game_data.get("id", ""),
                 date=game_data.get("date", today_str),
@@ -364,7 +453,8 @@ async def get_todays_games(request: Request):
                 predicted_winner=predicted_winner,
                 win_probability=round(win_probability, 3),
                 confidence=_get_confidence_label(win_probability),
-                odds=odds_comparison
+                odds=odds_comparison,
+                reasoning=reasoning
             )
             
             games.append(game_prediction)

@@ -3317,6 +3317,13 @@
                 const edgeScoreClass = game.odds && game.odds.edge_score > 5 ? 'positive' : 
                                        game.odds && game.odds.edge_score < -5 ? 'negative' : 'neutral';
                 
+                // Only show scores for live or finished games
+                const isLiveOrFinal = game.status.toLowerCase().includes('progress') || 
+                                      game.status.toLowerCase() === 'final' ||
+                                      game.status.toLowerCase().includes('halftime');
+                const homeScore = isLiveOrFinal && game.home_team.score && game.home_team.score !== '0' ? game.home_team.score : null;
+                const awayScore = isLiveOrFinal && game.away_team.score && game.away_team.score !== '0' ? game.away_team.score : null;
+                
                 return `
                     <div class="pick-card ${hasEdge ? 'has-edge' : ''}">
                         <div class="pick-header">
@@ -3337,7 +3344,7 @@
                                 <div class="pick-team-abbr">${game.away_team.abbreviation}</div>
                                 <div class="pick-team-prob">${awayProb.toFixed(0)}%</div>
                                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Win Probability</div>
-                                ${game.away_team.score ? `<div style="color: var(--text-muted); margin-top: 8px; font-size: 16px; font-weight: 600;">Score: ${game.away_team.score}</div>` : ''}
+                                ${awayScore ? `<div style="color: var(--primary); margin-top: 8px; font-size: 20px; font-weight: 700;">${awayScore}</div>` : ''}
                             </div>
                             
                             <div class="pick-vs">@</div>
@@ -3348,7 +3355,7 @@
                                 <div class="pick-team-abbr">${game.home_team.abbreviation}</div>
                                 <div class="pick-team-prob">${homeProb.toFixed(0)}%</div>
                                 <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Win Probability</div>
-                                ${game.home_team.score ? `<div style="color: var(--text-muted); margin-top: 8px; font-size: 16px; font-weight: 600;">Score: ${game.home_team.score}</div>` : ''}
+                                ${homeScore ? `<div style="color: var(--primary); margin-top: 8px; font-size: 20px; font-weight: 700;">${homeScore}</div>` : ''}
                             </div>
                         </div>
                         
@@ -3357,6 +3364,18 @@
                             <span class="pick-winner-name">${game.predicted_winner}</span>
                             <span class="pick-confidence ${confClass}">${game.confidence}</span>
                         </div>
+                        
+                        <!-- Reasoning Section -->
+                        ${game.reasoning && game.reasoning.length > 0 ? `
+                        <div class="pick-reasoning" style="background: var(--bg-tertiary); border-radius: 12px; padding: 16px; margin-top: 16px;">
+                            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 12px; font-size: 14px;">💡 Why This Pick?</div>
+                            <ul style="margin: 0; padding-left: 0; list-style: none;">
+                                ${game.reasoning.map(reason => `
+                                    <li style="color: var(--text-secondary); font-size: 13px; margin-bottom: 8px; padding-left: 8px; border-left: 2px solid var(--primary);">${reason}</li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
                         
                         ${game.odds ? `
                         <div class="pick-odds">
