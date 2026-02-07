@@ -2215,6 +2215,30 @@
                     🔄 Refresh
                 </button>
             </div>
+            
+            <!-- Explanation Card -->
+            <div class="info-card" style="background: var(--bg-secondary); border-radius: 12px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--primary);">
+                <h4 style="margin: 0 0 12px 0; color: var(--primary);">📊 How To Read These Picks</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; font-size: 13px;">
+                    <div>
+                        <strong style="color: var(--text-primary);">Win Probability</strong>
+                        <p style="margin: 4px 0 0; color: var(--text-muted);">Our model's calculated chance each team wins (adds to 100%).</p>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-primary);">Vegas Implied</strong>
+                        <p style="margin: 4px 0 0; color: var(--text-muted);">Win probability derived from betting lines (includes house edge).</p>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-primary);">Edge Score</strong>
+                        <p style="margin: 4px 0 0; color: var(--text-muted);">Our probability minus Vegas. <span style="color: var(--success);">+5% or higher = potential value bet</span>.</p>
+                    </div>
+                    <div>
+                        <strong style="color: var(--text-primary);">🔥 Has Edge</strong>
+                        <p style="margin: 4px 0 0; color: var(--text-muted);">Cards highlighted when our prediction differs from Vegas or shows +5% edge.</p>
+                    </div>
+                </div>
+            </div>
+            
             <div id="todaysGamesContainer">
                 <div class="loading-indicator">Loading today's games with predictions...</div>
             </div>
@@ -3271,17 +3295,27 @@
             }
             
             container.innerHTML = games.map(game => {
-                const hasEdge = game.odds && !game.odds.agreement;
+                // Use the win probabilities from the API (now as percentages)
+                const homeProb = game.home_team.win_probability;
+                const awayProb = game.away_team.win_probability;
                 const homeIsWinner = game.predicted_winner === game.home_team.name;
-                const awayProb = homeIsWinner ? (1 - game.win_probability) * 100 : game.win_probability * 100;
-                const homeProb = homeIsWinner ? game.win_probability * 100 : (1 - game.win_probability) * 100;
+                
+                // Check for edge - both disagreement with Vegas or strong edge score
+                const hasEdge = game.odds && (!game.odds.agreement || (game.odds.edge_score && game.odds.edge_score > 5));
                 
                 // Format game time
                 const gameDate = new Date(game.date);
                 const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
                 
                 // Get confidence class
-                const confClass = game.confidence.toLowerCase().replace(' ', '-').replace('-', '-');
+                const confClass = game.confidence.toLowerCase().replace(' ', '-');
+                
+                // Format edge score display
+                const edgeScoreDisplay = game.odds && game.odds.edge_score !== null 
+                    ? (game.odds.edge_score > 0 ? '+' : '') + game.odds.edge_score.toFixed(1) + '%'
+                    : 'N/A';
+                const edgeScoreClass = game.odds && game.odds.edge_score > 5 ? 'positive' : 
+                                       game.odds && game.odds.edge_score < -5 ? 'negative' : 'neutral';
                 
                 return `
                     <div class="pick-card ${hasEdge ? 'has-edge' : ''}">
@@ -3302,7 +3336,8 @@
                                 <div class="pick-team-name">${game.away_team.name}</div>
                                 <div class="pick-team-abbr">${game.away_team.abbreviation}</div>
                                 <div class="pick-team-prob">${awayProb.toFixed(0)}%</div>
-                                ${game.away_team.score ? `<div style="color: var(--text-muted); margin-top: 8px;">Score: ${game.away_team.score}</div>` : ''}
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Win Probability</div>
+                                ${game.away_team.score ? `<div style="color: var(--text-muted); margin-top: 8px; font-size: 16px; font-weight: 600;">Score: ${game.away_team.score}</div>` : ''}
                             </div>
                             
                             <div class="pick-vs">@</div>
@@ -3312,7 +3347,8 @@
                                 <div class="pick-team-name">${game.home_team.name}</div>
                                 <div class="pick-team-abbr">${game.home_team.abbreviation}</div>
                                 <div class="pick-team-prob">${homeProb.toFixed(0)}%</div>
-                                ${game.home_team.score ? `<div style="color: var(--text-muted); margin-top: 8px;">Score: ${game.home_team.score}</div>` : ''}
+                                <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Win Probability</div>
+                                ${game.home_team.score ? `<div style="color: var(--text-muted); margin-top: 8px; font-size: 16px; font-weight: 600;">Score: ${game.home_team.score}</div>` : ''}
                             </div>
                         </div>
                         
@@ -3326,7 +3362,7 @@
                         <div class="pick-odds">
                             <div class="odds-item">
                                 <div class="odds-label">Spread</div>
-                                <div class="odds-value">${game.odds.spread !== null ? (game.odds.spread > 0 ? '+' : '') + game.odds.spread : 'N/A'}</div>
+                                <div class="odds-value">${game.odds.spread !== null ? (game.odds.spread > 0 ? '+' : '') + game.odds.spread.toFixed(1) : 'N/A'}</div>
                             </div>
                             <div class="odds-item">
                                 <div class="odds-label">Over/Under</div>
@@ -3337,22 +3373,28 @@
                                 <div class="odds-value">${game.odds.vegas_favorite || 'N/A'}</div>
                             </div>
                             <div class="odds-item">
-                                <div class="odds-label">Home ML</div>
-                                <div class="odds-value">${game.odds.moneyline_home ? (game.odds.moneyline_home > 0 ? '+' : '') + game.odds.moneyline_home : 'N/A'}</div>
+                                <div class="odds-label">Vegas Implied</div>
+                                <div class="odds-value">${game.odds.vegas_implied_prob ? (game.odds.vegas_implied_prob * 100).toFixed(0) + '%' : 'N/A'}</div>
                             </div>
                             <div class="odds-item">
-                                <div class="odds-label">Away ML</div>
-                                <div class="odds-value">${game.odds.moneyline_away ? (game.odds.moneyline_away > 0 ? '+' : '') + game.odds.moneyline_away : 'N/A'}</div>
+                                <div class="odds-label">Our Prob</div>
+                                <div class="odds-value">${game.odds.our_win_prob ? (game.odds.our_win_prob * 100).toFixed(0) + '%' : 'N/A'}</div>
+                            </div>
+                            <div class="odds-item" style="background: ${game.odds.edge_score > 5 ? 'rgba(16, 185, 129, 0.2)' : game.odds.edge_score < -5 ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-tertiary)'}; border-radius: 8px;">
+                                <div class="odds-label">Edge Score</div>
+                                <div class="odds-value" style="color: ${game.odds.edge_score > 5 ? 'var(--success)' : game.odds.edge_score < -5 ? 'var(--danger)' : 'var(--text-primary)'}">${edgeScoreDisplay}</div>
                             </div>
                         </div>
                         <div class="odds-comparison ${game.odds.agreement ? 'agrees' : 'disagrees'}">
                             ${game.odds.agreement 
-                                ? '✅ Our prediction agrees with Vegas' 
+                                ? (game.odds.edge_score > 5 
+                                    ? '💪 We agree with Vegas but are MORE confident (potential value!)' 
+                                    : '✅ Our prediction agrees with Vegas')
                                 : '⚠️ ' + (game.odds.edge || 'Our prediction differs from Vegas')}
                         </div>
                         ${hasEdge ? `
                         <div class="edge-badge">
-                            🔥 Potential Value Bet
+                            🔥 ${game.odds.edge_score > 5 ? 'Edge: ' + edgeScoreDisplay + ' vs Vegas' : 'Potential Value Bet'}
                         </div>
                         ` : ''}
                         ` : `

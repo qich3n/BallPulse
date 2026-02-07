@@ -38,7 +38,8 @@ class TeamPrediction(BaseModel):
     abbreviation: str
     score: Optional[str] = None
     logo: Optional[str] = None
-    predicted_score: float = Field(description="Our prediction score 0-1")
+    strength_score: float = Field(description="Team strength rating 0-100%")
+    win_probability: float = Field(description="Win probability for this team 0-100%")
     stats_available: bool = True
 
 
@@ -50,8 +51,11 @@ class OddsComparison(BaseModel):
     moneyline_home: Optional[int] = None
     moneyline_away: Optional[int] = None
     vegas_favorite: Optional[str] = None
+    vegas_implied_prob: Optional[float] = Field(None, description="Vegas implied win probability for favorite")
     our_favorite: str
+    our_win_prob: float = Field(description="Our model's win probability for our pick")
     agreement: bool = Field(description="Whether our prediction agrees with Vegas")
+    edge_score: Optional[float] = Field(None, description="Edge score: difference between our prob and Vegas implied prob")
     edge: Optional[str] = Field(None, description="Potential betting edge if disagreement")
 
 
@@ -131,21 +135,85 @@ def _calculate_team_score(team_name: str) -> float:
 def _get_confidence_label(probability: float) -> str:
     """Get confidence label from probability"""
     diff = abs(probability - 0.5)
-    if diff >= 0.25:
+    if diff >= 0.20:
         return "High"
-    elif diff >= 0.15:
+    elif diff >= 0.12:
         return "Medium"
-    elif diff >= 0.08:
+    elif diff >= 0.05:
         return "Low"
     else:
         return "Toss-up"
+
+
+def _sigmoid(x: float, steepness: float = 4.0) -> float:
+    """Sigmoid function to convert score difference to probability"""
+    import math
+    return 1.0 / (1.0 + math.exp(-steepness * x))
+
+
+def _calculate_win_probability(home_score: float, away_score: float, home_advantage: float = 0.03) -> float:
+    """
+    Calculate win probability using sigmoid function.
+    
+    This converts the difference in team strength scores to a probability
+    using a sigmoid curve, which is more realistic than a simple ratio.
+    
+    Args:
+        home_score: Home team strength score (0-1)
+        away_score: Away team strength score (0-1)
+        home_advantage: Home court advantage bonus (default 3%)
+    
+    Returns:
+        Home team win probability (0-1)
+    """
+    # Apply home court advantage
+    adjusted_diff = (home_score + home_advantage) - away_score
+    
+    # Use sigmoid to convert difference to probability
+    # steepness=4 means a 0.25 difference gives ~73% probability
+    return _sigmoid(adjusted_diff, steepness=4.0)
+
+
+def _moneyline_to_implied_prob(moneyline: int) -> float:
+    """
+    Convert American moneyline odds to implied probability.
+    
+    Examples:
+        -150 -> 60% implied probability
+        +150 -> 40% implied probability
+    """
+    if moneyline < 0:
+        # Favorite: -150 means bet $150 to win $100
+        return abs(moneyline) / (abs(moneyline) + 100)
+    else:
+        # Underdog: +150 means bet $100 to win $150
+        return 100 / (moneyline + 100)
+
+
+def _calculate_edge_score(our_prob: float, vegas_implied_prob: float, same_pick: bool) -> float:
+    """
+    Calculate edge score comparing our prediction to Vegas.
+    
+    Positive edge = we see value (our prob > Vegas implies)
+    Negative edge = Vegas sees something we don't
+    
+    Returns:
+        Edge score as percentage points (e.g., 5.0 means 5% edge)
+    """
+    if same_pick:
+        # We agree with Vegas - edge is how much MORE confident we are
+        return (our_prob - vegas_implied_prob) * 100
+    else:
+        # We disagree - edge is our confidence in the opposite pick
+        return (our_prob - (1 - vegas_implied_prob)) * 100
 
 
 def _parse_odds_comparison(
     odds_data: Optional[Dict[str, Any]], 
     home_team: str, 
     away_team: str,
-    our_predicted_winner: str
+    our_predicted_winner: str,
+    our_win_probability: float
 ) -> Optional[OddsComparison]:
     """Parse ESPN odds data and compare with our prediction"""
     if not odds_data:
@@ -172,13 +240,29 @@ def _parse_odds_comparison(
     moneyline_home = home_odds.get("moneyLine") if home_odds else None
     moneyline_away = away_odds.get("moneyLine") if away_odds else None
     
+    # Calculate Vegas implied probability from moneylines
+    vegas_implied_prob = None
+    if moneyline_home is not None and moneyline_away is not None:
+        # Get implied prob for the favorite
+        if vegas_favorite == home_team:
+            vegas_implied_prob = _moneyline_to_implied_prob(moneyline_home)
+        elif vegas_favorite == away_team:
+            vegas_implied_prob = _moneyline_to_implied_prob(moneyline_away)
+    
     # Compare with our prediction
     agreement = (vegas_favorite == our_predicted_winner) if vegas_favorite and vegas_favorite != "Pick'em" else True
     
-    # Calculate potential edge
+    # Calculate edge score
+    edge_score = None
+    if vegas_implied_prob is not None:
+        edge_score = _calculate_edge_score(our_win_probability, vegas_implied_prob, agreement)
+    
+    # Generate edge description
     edge = None
     if not agreement and spread is not None:
-        edge = f"Our model picks {our_predicted_winner}, Vegas favors {vegas_favorite} by {abs(spread)} pts"
+        edge = f"Our model picks {our_predicted_winner}, Vegas favors {vegas_favorite} by {abs(spread):.1f} pts"
+    elif edge_score is not None and edge_score > 5:
+        edge = f"Strong edge: Our model is {edge_score:.1f}% more confident than Vegas"
     
     return OddsComparison(
         spread=spread,
@@ -187,8 +271,11 @@ def _parse_odds_comparison(
         moneyline_home=moneyline_home,
         moneyline_away=moneyline_away,
         vegas_favorite=vegas_favorite or "Unknown",
+        vegas_implied_prob=round(vegas_implied_prob, 3) if vegas_implied_prob else None,
         our_favorite=our_predicted_winner,
+        our_win_prob=round(our_win_probability, 3),
         agreement=agreement,
+        edge_score=round(edge_score, 1) if edge_score else None,
         edge=edge
     )
 
@@ -221,19 +308,12 @@ async def get_todays_games(request: Request):
             home_name = home_info.get("name", "Unknown")
             away_name = away_info.get("name", "Unknown")
             
-            # Calculate prediction scores
+            # Calculate team strength scores (0-1 scale)
             home_score = _calculate_team_score(home_name)
             away_score = _calculate_team_score(away_name)
             
-            # Apply home court advantage (~3-4% boost)
-            home_score_adjusted = min(1.0, home_score + 0.03)
-            
-            # Calculate win probability using scoring service
-            total_score = home_score_adjusted + away_score
-            if total_score > 0:
-                home_win_prob = home_score_adjusted / total_score
-            else:
-                home_win_prob = 0.5
+            # Calculate win probability using sigmoid function with home court advantage
+            home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
             
             # Determine predicted winner
             if home_win_prob >= 0.5:
@@ -243,12 +323,13 @@ async def get_todays_games(request: Request):
                 predicted_winner = away_name
                 win_probability = 1 - home_win_prob
             
-            # Parse odds comparison
+            # Parse odds comparison with our probability
             odds_comparison = _parse_odds_comparison(
                 game_data.get("odds"),
                 home_name,
                 away_name,
-                predicted_winner
+                predicted_winner,
+                win_probability
             )
             
             game_prediction = GamePrediction(
@@ -263,7 +344,8 @@ async def get_todays_games(request: Request):
                     abbreviation=home_info.get("abbreviation", ""),
                     score=home_info.get("score"),
                     logo=home_info.get("logo"),
-                    predicted_score=round(home_score_adjusted, 3),
+                    strength_score=round(home_score * 100, 1),
+                    win_probability=round(home_win_prob * 100, 1),
                     stats_available=home_score != 0.5
                 ),
                 away_team=TeamPrediction(
@@ -271,7 +353,8 @@ async def get_todays_games(request: Request):
                     abbreviation=away_info.get("abbreviation", ""),
                     score=away_info.get("score"),
                     logo=away_info.get("logo"),
-                    predicted_score=round(away_score, 3),
+                    strength_score=round(away_score * 100, 1),
+                    win_probability=round((1 - home_win_prob) * 100, 1),
                     stats_available=away_score != 0.5
                 ),
                 predicted_winner=predicted_winner,
@@ -325,13 +408,10 @@ async def get_games_by_date(date: str):
             home_name = home.get("team", {}).get("displayName", "Unknown")
             away_name = away.get("team", {}).get("displayName", "Unknown")
             
-            # Calculate predictions
+            # Calculate predictions using sigmoid function
             home_score = _calculate_team_score(home_name)
             away_score = _calculate_team_score(away_name)
-            home_score_adjusted = min(1.0, home_score + 0.03)
-            
-            total_score = home_score_adjusted + away_score
-            home_win_prob = home_score_adjusted / total_score if total_score > 0 else 0.5
+            home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
             
             if home_win_prob >= 0.5:
                 predicted_winner = home_name
@@ -352,7 +432,7 @@ async def get_games_by_date(date: str):
                     "away_team_odds": raw_odds.get("awayTeamOdds", {})
                 }
             
-            odds_comparison = _parse_odds_comparison(odds_data, home_name, away_name, predicted_winner)
+            odds_comparison = _parse_odds_comparison(odds_data, home_name, away_name, predicted_winner, win_probability)
             
             game_prediction = GamePrediction(
                 game_id=event.get("id", ""),
@@ -366,7 +446,8 @@ async def get_games_by_date(date: str):
                     abbreviation=home.get("team", {}).get("abbreviation", ""),
                     score=home.get("score"),
                     logo=home.get("team", {}).get("logo"),
-                    predicted_score=round(home_score_adjusted, 3),
+                    strength_score=round(home_score * 100, 1),
+                    win_probability=round(home_win_prob * 100, 1),
                     stats_available=True
                 ),
                 away_team=TeamPrediction(
@@ -374,7 +455,8 @@ async def get_games_by_date(date: str):
                     abbreviation=away.get("team", {}).get("abbreviation", ""),
                     score=away.get("score"),
                     logo=away.get("team", {}).get("logo"),
-                    predicted_score=round(away_score, 3),
+                    strength_score=round(away_score * 100, 1),
+                    win_probability=round((1 - home_win_prob) * 100, 1),
                     stats_available=True
                 ),
                 predicted_winner=predicted_winner,
