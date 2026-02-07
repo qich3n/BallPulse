@@ -3060,7 +3060,7 @@
             container.innerHTML = standings.conferences.map(conf => `
                 <div class="standings-conference">
                     <h3 class="conference-name">${conf.name || 'Conference'}</h3>
-                    ${conf.divisions ? conf.divisions.map(div => `
+                    ${conf.divisions && conf.divisions.length > 0 ? conf.divisions.map(div => `
                         <div class="standings-division">
                             <h4 class="division-name">${div.name}</h4>
                             <table class="standings-table">
