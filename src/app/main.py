@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from .routes import health, compare, teams, history, matchup, espn
+from .routes import health, compare, teams, history, matchup, espn, games
 from .services.rate_limiter import limiter
 
 # Configure logging
@@ -56,6 +56,7 @@ app.include_router(teams.router)
 app.include_router(history.router)
 app.include_router(matchup.router)
 app.include_router(espn.router)
+app.include_router(games.router)
 
 # Mount static files
 try:

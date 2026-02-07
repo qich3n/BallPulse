@@ -1554,6 +1554,406 @@
             border-top: 1px solid var(--border);
             margin-top: 8px;
         }
+
+        /* ==================== Today's Games / Picks Styles ==================== */
+        .picks-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .picks-date {
+            font-size: 16px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .picks-summary {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .picks-stat {
+            padding: 8px 16px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .picks-stat-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 2px;
+        }
+
+        .picks-stat-value {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .pick-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .pick-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+            border-color: var(--primary);
+        }
+
+        .pick-card.has-edge {
+            border-left: 4px solid var(--warning);
+        }
+
+        .pick-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .pick-time {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+
+        .pick-venue {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        .pick-status {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .pick-status.scheduled {
+            background: var(--bg-tertiary);
+            color: var(--text-muted);
+        }
+
+        .pick-status.live {
+            background: var(--danger);
+            color: white;
+            animation: pulse 2s infinite;
+        }
+
+        .pick-status.final {
+            background: var(--success);
+            color: white;
+        }
+
+        .pick-matchup {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 24px;
+        }
+
+        .pick-team {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            border-radius: 12px;
+            background: var(--bg-tertiary);
+            transition: all 0.3s ease;
+        }
+
+        .pick-team.favored {
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(6, 182, 212, 0.1));
+            border: 1px solid var(--primary);
+        }
+
+        .pick-team-logo {
+            width: 48px;
+            height: 48px;
+            object-fit: contain;
+            margin-bottom: 8px;
+        }
+
+        .pick-team-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+
+        .pick-team-abbr {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .pick-team-prob {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 8px;
+        }
+
+        .pick-vs {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-muted);
+            padding: 12px;
+        }
+
+        .pick-prediction {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary));
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .pick-winner-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .pick-winner-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .pick-confidence {
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .pick-confidence.high {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .pick-confidence.medium {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+
+        .pick-confidence.low {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        .pick-confidence.toss-up {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-muted);
+        }
+
+        .pick-odds {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        .odds-item {
+            text-align: center;
+        }
+
+        .odds-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .odds-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .odds-comparison {
+            margin-top: 12px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .odds-comparison.agrees {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--success);
+        }
+
+        .odds-comparison.disagrees {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            color: var(--warning);
+        }
+
+        .edge-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--warning);
+            margin-top: 12px;
+        }
+
+        /* ==================== Head-to-Head Styles ==================== */
+        .h2h-form {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 24px;
+            flex-wrap: wrap;
+        }
+
+        .h2h-form .form-input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .h2h-form .btn-primary {
+            margin-top: 0;
+            min-width: 150px;
+        }
+
+        .h2h-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+
+        .h2h-summary-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .h2h-team-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .h2h-wins {
+            font-size: 48px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .h2h-wins-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .h2h-vs-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .h2h-vs {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        .h2h-total {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin-top: 8px;
+        }
+
+        .h2h-games-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .h2h-game-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .h2h-game-date {
+            font-size: 13px;
+            color: var(--text-muted);
+            min-width: 100px;
+        }
+
+        .h2h-game-teams {
+            flex: 1;
+            font-size: 15px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .h2h-game-score {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .h2h-game-winner {
+            padding: 4px 12px;
+            background: var(--success);
+            color: white;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .h2h-summary {
+                grid-template-columns: 1fr;
+            }
+            .pick-matchup {
+                flex-direction: column;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1568,6 +1968,18 @@
                 <a href="#" class="nav-link active" data-page="dashboard">
                     <span>📊</span>
                     <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-page="todaysgames">
+                    <span>🎯</span>
+                    <span>Today's Picks</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a href="#" class="nav-link" data-page="headtohead">
+                    <span>🔄</span>
+                    <span>Head-to-Head</span>
                 </a>
             </li>
             <li class="nav-item">
@@ -1789,6 +2201,39 @@
             </div>
             <div id="injuriesContainer">
                 <div class="loading-indicator">Loading injury reports...</div>
+            </div>
+        </div>
+
+        <!-- Today's Games / Picks Page -->
+        <div class="page-container" id="todaysgamesPage">
+            <div class="picks-header">
+                <div>
+                    <div class="picks-date" id="picksDate">Loading...</div>
+                </div>
+                <div class="picks-summary" id="picksSummary"></div>
+                <button class="refresh-btn" onclick="loadTodaysGames()" title="Refresh predictions">
+                    🔄 Refresh
+                </button>
+            </div>
+            <div id="todaysGamesContainer">
+                <div class="loading-indicator">Loading today's games with predictions...</div>
+            </div>
+        </div>
+
+        <!-- Head-to-Head Page -->
+        <div class="page-container" id="headtoheadPage">
+            <div class="form-card">
+                <form id="h2hForm" class="h2h-form">
+                    <input type="text" class="form-input" id="h2hTeam1" placeholder="Team 1 (e.g., Lakers)" required>
+                    <input type="text" class="form-input" id="h2hTeam2" placeholder="Team 2 (e.g., Celtics)" required>
+                    <button type="submit" class="btn-primary" id="h2hSubmitBtn">Compare History</button>
+                </form>
+            </div>
+            <div id="h2hContainer">
+                <div class="empty-state">
+                    <div class="empty-state-icon">🔄</div>
+                    <p>Enter two teams to see their head-to-head history</p>
+                </div>
             </div>
         </div>
     </main>
@@ -2039,6 +2484,8 @@
         // Navigation and Routing
         const pageTitles = {
             dashboard: 'Matchup Predictor',
+            todaysgames: "Today's Picks",
+            headtohead: 'Head-to-Head History',
             teams: 'NBA Teams',
             matchup: 'Recent Matchups',
             history: 'Comparison History',
@@ -2099,6 +2546,10 @@
                 loadStandings();
             } else if (page === 'injuries') {
                 loadInjuries();
+            } else if (page === 'todaysgames') {
+                loadTodaysGames();
+            } else if (page === 'headtohead') {
+                // Show empty state, wait for form submission
             }
         }
 
@@ -2756,6 +3207,275 @@
                     loadInjuries(searchTerm);
                 }, 300);
             });
+        }
+
+        // ==================== TODAY'S GAMES / PICKS ====================
+        
+        async function loadTodaysGames() {
+            const container = document.getElementById('todaysGamesContainer');
+            const dateEl = document.getElementById('picksDate');
+            const summaryEl = document.getElementById('picksSummary');
+            
+            container.innerHTML = '<div class="loading-indicator">Loading today\'s games with predictions...</div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/games/today`);
+                if (!response.ok) throw new Error('Failed to fetch today\'s games');
+                
+                const data = await response.json();
+                
+                // Update date
+                dateEl.textContent = `📅 ${new Date(data.date).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}`;
+                
+                // Update summary stats
+                const gamesWithEdge = data.games.filter(g => g.odds && !g.odds.agreement).length;
+                summaryEl.innerHTML = `
+                    <div class="picks-stat">
+                        <div class="picks-stat-label">Games Today</div>
+                        <div class="picks-stat-value">${data.total_games}</div>
+                    </div>
+                    <div class="picks-stat">
+                        <div class="picks-stat-label">Predictions</div>
+                        <div class="picks-stat-value">${data.predictions_generated}</div>
+                    </div>
+                    ${gamesWithEdge > 0 ? `
+                    <div class="picks-stat" style="border-color: var(--warning);">
+                        <div class="picks-stat-label">Potential Edges</div>
+                        <div class="picks-stat-value" style="color: var(--warning);">🔥 ${gamesWithEdge}</div>
+                    </div>
+                    ` : ''}
+                `;
+                
+                displayTodaysGames(data.games);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadTodaysGames()">Retry</button>
+                    </div>
+                `;
+            }
+        }
+
+        function displayTodaysGames(games) {
+            const container = document.getElementById('todaysGamesContainer');
+            
+            if (games.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🏀</div>
+                        <p>No NBA games scheduled for today</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            container.innerHTML = games.map(game => {
+                const hasEdge = game.odds && !game.odds.agreement;
+                const homeIsWinner = game.predicted_winner === game.home_team.name;
+                const awayProb = homeIsWinner ? (1 - game.win_probability) * 100 : game.win_probability * 100;
+                const homeProb = homeIsWinner ? game.win_probability * 100 : (1 - game.win_probability) * 100;
+                
+                // Format game time
+                const gameDate = new Date(game.date);
+                const timeStr = gameDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+                
+                // Get confidence class
+                const confClass = game.confidence.toLowerCase().replace(' ', '-').replace('-', '-');
+                
+                return `
+                    <div class="pick-card ${hasEdge ? 'has-edge' : ''}">
+                        <div class="pick-header">
+                            <div>
+                                <div class="pick-time">🕐 ${timeStr}</div>
+                                ${game.venue ? `<div class="pick-venue">📍 ${game.venue}</div>` : ''}
+                                ${game.broadcast ? `<div class="pick-venue">📺 ${game.broadcast}</div>` : ''}
+                            </div>
+                            <div class="pick-status ${game.status.toLowerCase().includes('progress') ? 'live' : game.status.toLowerCase() === 'final' ? 'final' : 'scheduled'}">
+                                ${game.status}
+                            </div>
+                        </div>
+                        
+                        <div class="pick-matchup">
+                            <div class="pick-team ${!homeIsWinner ? 'favored' : ''}">
+                                ${game.away_team.logo ? `<img src="${game.away_team.logo}" alt="${game.away_team.abbreviation}" class="pick-team-logo">` : ''}
+                                <div class="pick-team-name">${game.away_team.name}</div>
+                                <div class="pick-team-abbr">${game.away_team.abbreviation}</div>
+                                <div class="pick-team-prob">${awayProb.toFixed(0)}%</div>
+                                ${game.away_team.score ? `<div style="color: var(--text-muted); margin-top: 8px;">Score: ${game.away_team.score}</div>` : ''}
+                            </div>
+                            
+                            <div class="pick-vs">@</div>
+                            
+                            <div class="pick-team ${homeIsWinner ? 'favored' : ''}">
+                                ${game.home_team.logo ? `<img src="${game.home_team.logo}" alt="${game.home_team.abbreviation}" class="pick-team-logo">` : ''}
+                                <div class="pick-team-name">${game.home_team.name}</div>
+                                <div class="pick-team-abbr">${game.home_team.abbreviation}</div>
+                                <div class="pick-team-prob">${homeProb.toFixed(0)}%</div>
+                                ${game.home_team.score ? `<div style="color: var(--text-muted); margin-top: 8px;">Score: ${game.home_team.score}</div>` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="pick-prediction">
+                            <span class="pick-winner-label">🎯 Our Pick:</span>
+                            <span class="pick-winner-name">${game.predicted_winner}</span>
+                            <span class="pick-confidence ${confClass}">${game.confidence}</span>
+                        </div>
+                        
+                        ${game.odds ? `
+                        <div class="pick-odds">
+                            <div class="odds-item">
+                                <div class="odds-label">Spread</div>
+                                <div class="odds-value">${game.odds.spread !== null ? (game.odds.spread > 0 ? '+' : '') + game.odds.spread : 'N/A'}</div>
+                            </div>
+                            <div class="odds-item">
+                                <div class="odds-label">Over/Under</div>
+                                <div class="odds-value">${game.odds.over_under || 'N/A'}</div>
+                            </div>
+                            <div class="odds-item">
+                                <div class="odds-label">Vegas Favorite</div>
+                                <div class="odds-value">${game.odds.vegas_favorite || 'N/A'}</div>
+                            </div>
+                            <div class="odds-item">
+                                <div class="odds-label">Home ML</div>
+                                <div class="odds-value">${game.odds.moneyline_home ? (game.odds.moneyline_home > 0 ? '+' : '') + game.odds.moneyline_home : 'N/A'}</div>
+                            </div>
+                            <div class="odds-item">
+                                <div class="odds-label">Away ML</div>
+                                <div class="odds-value">${game.odds.moneyline_away ? (game.odds.moneyline_away > 0 ? '+' : '') + game.odds.moneyline_away : 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="odds-comparison ${game.odds.agreement ? 'agrees' : 'disagrees'}">
+                            ${game.odds.agreement 
+                                ? '✅ Our prediction agrees with Vegas' 
+                                : '⚠️ ' + (game.odds.edge || 'Our prediction differs from Vegas')}
+                        </div>
+                        ${hasEdge ? `
+                        <div class="edge-badge">
+                            🔥 Potential Value Bet
+                        </div>
+                        ` : ''}
+                        ` : `
+                        <div style="text-align: center; color: var(--text-muted); padding: 16px;">
+                            No betting odds available for this game
+                        </div>
+                        `}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== HEAD-TO-HEAD ====================
+        
+        const h2hForm = document.getElementById('h2hForm');
+        if (h2hForm) {
+            h2hForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const team1 = document.getElementById('h2hTeam1').value.trim();
+                const team2 = document.getElementById('h2hTeam2').value.trim();
+                
+                if (!team1 || !team2) return;
+                
+                await loadHeadToHead(team1, team2);
+            });
+        }
+
+        async function loadHeadToHead(team1, team2) {
+            const container = document.getElementById('h2hContainer');
+            const submitBtn = document.getElementById('h2hSubmitBtn');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Loading...';
+            container.innerHTML = '<div class="loading-card"><div class="spinner"></div><p class="loading-text">Fetching head-to-head history...</p></div>';
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/games/head-to-head?team1=${encodeURIComponent(team1)}&team2=${encodeURIComponent(team2)}&limit=20`);
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ detail: 'Failed to fetch head-to-head' }));
+                    throw new Error(errorData.detail || `HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                displayHeadToHead(data);
+            } catch (error) {
+                container.innerHTML = `
+                    <div class="error-message">
+                        <div>Error: ${error.message}</div>
+                        <button class="error-retry" onclick="loadHeadToHead('${team1}', '${team2}')">Retry</button>
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Compare History';
+            }
+        }
+
+        function displayHeadToHead(data) {
+            const container = document.getElementById('h2hContainer');
+            
+            // Summary cards
+            let html = `
+                <div class="h2h-summary">
+                    <div class="h2h-summary-card">
+                        <div class="h2h-team-name">${data.team1}</div>
+                        <div class="h2h-wins">${data.team1_wins}</div>
+                        <div class="h2h-wins-label">Wins</div>
+                    </div>
+                    <div class="h2h-summary-card h2h-vs-card">
+                        <div class="h2h-vs">VS</div>
+                        <div class="h2h-total">${data.total_games} games found</div>
+                        ${data.last_meeting ? `
+                        <div style="margin-top: 12px; font-size: 12px; color: var(--text-muted);">
+                            Last meeting: ${new Date(data.last_meeting.date).toLocaleDateString()}
+                        </div>
+                        ` : ''}
+                    </div>
+                    <div class="h2h-summary-card">
+                        <div class="h2h-team-name">${data.team2}</div>
+                        <div class="h2h-wins">${data.team2_wins}</div>
+                        <div class="h2h-wins-label">Wins</div>
+                    </div>
+                </div>
+            `;
+            
+            // Games list
+            if (data.games.length > 0) {
+                html += `
+                    <div class="section-title" style="margin-bottom: 16px;">Recent Matchups</div>
+                    <div class="h2h-games-list">
+                        ${data.games.map(game => {
+                            const gameDate = new Date(game.date);
+                            return `
+                                <div class="h2h-game-card">
+                                    <div class="h2h-game-date">
+                                        ${gameDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    </div>
+                                    <div class="h2h-game-teams">
+                                        ${game.away_team} @ ${game.home_team}
+                                    </div>
+                                    <div class="h2h-game-score">
+                                        ${game.away_score} - ${game.home_score}
+                                    </div>
+                                    <div class="h2h-game-winner">
+                                        ${game.winner} wins
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <p>No recent games found between these teams</p>
+                        <p style="font-size: 14px; color: var(--text-muted); margin-top: 8px;">Try checking the Live Scores page for upcoming matchups</p>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
         }
     </script>
 </body>
