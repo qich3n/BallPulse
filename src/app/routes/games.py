@@ -75,6 +75,20 @@ class HeadToHeadSummary(BaseModel):
     home_team_wins_at_home: int = 0
 
 
+class LiveGameInfo(BaseModel):
+    """Live game status and score information"""
+    is_live: bool = Field(False, description="True if game is currently in progress")
+    is_final: bool = Field(False, description="True if game has ended")
+    period: int = Field(0, description="Current period (1-4, 5+ for OT)")
+    period_display: str = Field("", description="Period display (e.g., '3rd', 'OT', 'Final')")
+    clock: str = Field("", description="Game clock (e.g., '5:23')")
+    home_score: int = Field(0, description="Home team current score")
+    away_score: int = Field(0, description="Away team current score")
+    score_display: str = Field("", description="Score display (e.g., '105-98')")
+    leader: Optional[str] = Field(None, description="Team currently leading")
+    lead_margin: int = Field(0, description="Current point margin")
+
+
 class GamePrediction(BaseModel):
     """Game with prediction and odds"""
     game_id: str
@@ -91,6 +105,7 @@ class GamePrediction(BaseModel):
     odds: Optional[OddsComparison] = None
     reasoning: List[str] = Field(default_factory=list, description="Reasons for the prediction")
     head_to_head: Optional[HeadToHeadSummary] = Field(None, description="Recent head-to-head history")
+    live: Optional[LiveGameInfo] = Field(None, description="Live game score and status (if in progress or final)")
 
 
 class TodaysGamesResponse(BaseModel):
@@ -547,6 +562,83 @@ def _get_confidence_label(probability: float) -> str:
         return "Toss-up"
 
 
+def _parse_live_game_info(game_data: Dict[str, Any]) -> Optional[LiveGameInfo]:
+    """
+    Parse live game information from ESPN game data.
+    
+    Returns:
+        LiveGameInfo if game is in progress or final, None if scheduled
+    """
+    status = game_data.get("status", "").lower()
+    status_detail = game_data.get("status_detail", "")
+    
+    # Determine game state
+    is_live = "in progress" in status or "halftime" in status
+    is_final = "final" in status
+    
+    # If game hasn't started yet, return None
+    if not is_live and not is_final:
+        return None
+    
+    period = game_data.get("period", 0)
+    clock = game_data.get("clock", "")
+    
+    # Get scores
+    home_info = game_data.get("home_team", {})
+    away_info = game_data.get("away_team", {})
+    
+    try:
+        home_score = int(home_info.get("score", 0) or 0)
+        away_score = int(away_info.get("score", 0) or 0)
+    except (ValueError, TypeError):
+        home_score = 0
+        away_score = 0
+    
+    # Determine period display
+    if is_final:
+        if period > 4:
+            period_display = f"Final/OT{period - 4}" if period > 5 else "Final/OT"
+        else:
+            period_display = "Final"
+    elif period == 0:
+        period_display = "Pre-Game"
+    elif period == 1:
+        period_display = "1st"
+    elif period == 2:
+        period_display = "2nd"
+    elif period == 3:
+        period_display = "3rd"
+    elif period == 4:
+        period_display = "4th"
+    else:
+        period_display = f"OT{period - 4}" if period > 5 else "OT"
+    
+    # Add clock if game is live
+    if is_live and clock:
+        period_display = f"{period_display} {clock}"
+    
+    # Determine leader
+    leader = None
+    lead_margin = abs(home_score - away_score)
+    if home_score > away_score:
+        leader = home_info.get("name", "Home")
+    elif away_score > home_score:
+        leader = away_info.get("name", "Away")
+    
+    return LiveGameInfo(
+        is_live=is_live,
+        is_final=is_final,
+        period=period,
+        period_display=period_display,
+        clock=clock,
+        home_score=home_score,
+        away_score=away_score,
+        score_display=f"{home_score}-{away_score}",
+        leader=leader,
+        lead_margin=lead_margin
+    )
+
+
 def _sigmoid(x: float, steepness: float = 4.0) -> float:
     """Sigmoid function to convert score difference to probability"""
     import math
@@ -808,7 +900,8 @@ async def get_todays_games(request: Request):
                 confidence=_get_confidence_label(win_probability),
                 odds=odds_comparison,
                 reasoning=reasoning,
-                head_to_head=h2h if h2h.total_games > 0 else None
+                head_to_head=h2h if h2h.total_games > 0 else None,
+                live=_parse_live_game_info(game_data)
             )
             
             games.append(game_prediction)
@@ -950,7 +1043,15 @@ async def get_games_by_date(date: str):
                 confidence=_get_confidence_label(win_probability),
                 odds=odds_comparison,
                 reasoning=reasoning,
-                head_to_head=h2h if h2h.total_games > 0 else None
+                head_to_head=h2h if h2h.total_games > 0 else None,
+                live=_parse_live_game_info({
+                    "status": event.get("status", {}).get("type", {}).get("description", ""),
+                    "status_detail": event.get("status", {}).get("type", {}).get("detail", ""),
+                    "period": event.get("status", {}).get("period", 0),
+                    "clock": event.get("status", {}).get("displayClock", ""),
+                    "home_team": {"name": home_name, "score": home.get("score", "0")},
+                    "away_team": {"name": away_name, "score": away.get("score", "0")}
+                })
             )
             
             games.append(game_prediction)
