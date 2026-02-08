@@ -64,19 +64,19 @@ async def get_teams(request: Request, include_stats: bool = False) -> TeamListRe
                 try:
                     stats = basketball_provider.get_team_stats_summary(team['full_name'])
                     team_info.stats = stats
-                except Exception as e:
-                    logger.warning(f"Failed to fetch stats for {team['full_name']}: {e}")
+                except (ValueError, KeyError, TypeError) as e:
+                    logger.warning("Failed to fetch stats for %s: %s", team['full_name'], e)
             
             team_list.append(team_info)
         
         return TeamListResponse(teams=team_list, total=len(team_list))
         
     except Exception as e:
-        logger.error(f"Error fetching teams: {e}", exc_info=True)
+        logger.error("Error fetching teams: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch teams: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{team_name}", response_model=TeamInfo)
@@ -127,16 +127,16 @@ async def get_team(team_name: str, include_stats: bool = True) -> TeamInfo:
             try:
                 stats = basketball_provider.get_team_stats_summary(team['full_name'])
                 team_info.stats = stats
-            except Exception as e:
-                logger.warning(f"Failed to fetch stats for {team['full_name']}: {e}")
+            except (ValueError, KeyError, TypeError) as e:
+                logger.warning("Failed to fetch stats for %s: %s", team['full_name'], e)
         
         return team_info
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching team {team_name}: {e}", exc_info=True)
+        logger.error("Error fetching team %s: %s", team_name, e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch team: {str(e)}"
-        )
+        ) from e

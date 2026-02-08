@@ -6,11 +6,10 @@ Includes basic health check and detailed health check with dependency status.
 """
 
 import logging
-import os
 import sys
 import time
 from datetime import datetime
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from fastapi import APIRouter, Request, Query
 from pydantic import BaseModel, Field
 import httpx

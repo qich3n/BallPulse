@@ -57,15 +57,15 @@ class BasketballProvider:
             self._team_cache[cache_key] = team_id
             
             if not team_id:
-                self.logger.warning(f"Team '{team_name}' not found in NBA teams")
+                self.logger.warning("Team '%s' not found in NBA teams", team_name)
             
             return team_id
             
-        except Exception as e:
-            self.logger.error(f"Error fetching team ID for '{team_name}': {e}")
+        except (ValueError, KeyError, AttributeError) as e:
+            self.logger.error("Error fetching team ID for '%s': %s", team_name, e)
             return None
     
-    def _get_placeholder_stats(self, team_name: str) -> Dict[str, Any]:
+    def get_placeholder_stats(self, team_name: str) -> Dict[str, Any]:
         """
         Return placeholder stats when API fetch fails
         
@@ -105,13 +105,13 @@ class BasketballProvider:
         team_id = self._get_team_id(team_name)
         
         if not team_id:
-            self.logger.warning(f"Team ID not found for '{team_name}', using placeholder data")
-            return self._get_placeholder_stats(team_name)
+            self.logger.warning("Team ID not found for '%s', using placeholder data", team_name)
+            return self.get_placeholder_stats(team_name)
         
         try:
             # Try current season first
             season = SeasonAll.current_season
-            self.logger.debug(f"Fetching stats for team_id={team_id}, season={season}")
+            self.logger.debug("Fetching stats for team_id=%s, season=%s", team_id, season)
             
             try:
                 # Add small delay to avoid rate limiting
@@ -131,22 +131,22 @@ class BasketballProvider:
                         result_sets = response_dict.get('resultSets', [])
                         if result_sets:
                             row_set = result_sets[0].get('rowSet', [])
-                            self.logger.info(f"API response: {len(row_set)} rows returned for season {season}, team '{team_name}'")
+                            self.logger.info("API response: %d rows returned for season %s, team '%s'", len(row_set), season, team_name)
                             if len(row_set) == 0:
-                                self.logger.warning(f"API returned empty rowSet for season {season}. This may indicate the season hasn't started, data isn't available yet, or the API format changed.")
+                                self.logger.warning("API returned empty rowSet for season %s. This may indicate the season hasn't started, data isn't available yet, or the API format changed.", season)
                         else:
-                            self.logger.warning(f"API returned empty resultSets for season {season}")
-                    except Exception as dict_error:
-                        self.logger.debug(f"Could not parse API response dict: {dict_error}")
+                            self.logger.warning("API returned empty resultSets for season %s", season)
+                    except (KeyError, TypeError, AttributeError) as dict_error:
+                        self.logger.debug("Could not parse API response dict: %s", dict_error)
                 
-                self.logger.debug(f"API call successful for {season}. DataFrame shape: {games_df.shape}, columns: {list(games_df.columns) if not games_df.empty else 'empty'}")
-            except Exception as api_error:
-                self.logger.error(f"API error fetching current season {season} for team '{team_name}' (team_id={team_id}): {api_error}", exc_info=True)
+                self.logger.debug("API call successful for %s. DataFrame shape: %s, columns: %s", season, games_df.shape, list(games_df.columns) if not games_df.empty else 'empty')
+            except (ValueError, KeyError, AttributeError) as api_error:
+                self.logger.error("API error fetching current season %s for team '%s' (team_id=%s): %s", season, team_name, team_id, api_error, exc_info=True)
                 games_df = None
             
             # If no games in current season, try previous seasons
             if games_df is None or games_df.empty:
-                self.logger.info(f"No games found in {season} for team '{team_name}' (team_id={team_id}), trying previous seasons")
+                self.logger.info("No games found in %s for team '%s' (team_id=%s), trying previous seasons", season, team_name, team_id)
                 # Try multiple previous seasons (last 2 seasons should have data)
                 year = int(season.split('-')[0])
                 seasons_to_try = [
@@ -155,7 +155,7 @@ class BasketballProvider:
                 ]
                 
                 for prev_season in seasons_to_try:
-                    self.logger.debug(f"Trying season: {prev_season}")
+                    self.logger.debug("Trying season: %s", prev_season)
                     try:
                         # Add delay between API requests
                         time.sleep(0.6)
@@ -167,14 +167,14 @@ class BasketballProvider:
                         prev_games_df = prev_gamelog.get_data_frames()[0]
                         
                         if prev_games_df is not None and not prev_games_df.empty:
-                            self.logger.info(f"Found {len(prev_games_df)} games in season {prev_season} for team '{team_name}'")
+                            self.logger.info("Found %d games in season %s for team '%s'", len(prev_games_df), prev_season, team_name)
                             games_df = prev_games_df
                             season = prev_season
                             break
                         else:
-                            self.logger.debug(f"No games in season {prev_season} for team '{team_name}'")
-                    except Exception as e:
-                        self.logger.debug(f"Error fetching season {prev_season} for team '{team_name}': {e}")
+                            self.logger.debug("No games in season %s for team '%s'", prev_season, team_name)
+                    except (ValueError, KeyError, AttributeError) as e:
+                        self.logger.debug("Error fetching season %s for team '%s': %s", prev_season, team_name, e)
                         continue
                 
                 # If still no data, create empty dataframe
@@ -187,7 +187,7 @@ class BasketballProvider:
             
             # If TeamGameLog fails, try TeamDashboardByGeneralSplits as fallback
             if games_df is None or games_df.empty:
-                self.logger.info(f"TeamGameLog returned no data, trying TeamDashboardByGeneralSplits as fallback for team '{team_name}'")
+                self.logger.info("TeamGameLog returned no data, trying TeamDashboardByGeneralSplits as fallback for team '%s'", team_name)
                 games_df = None
                 season = SeasonAll.current_season
                 
@@ -208,19 +208,19 @@ class BasketballProvider:
                         dashboard_df = dashboard.get_data_frames()[0]
                         
                         if dashboard_df is not None and not dashboard_df.empty:
-                            self.logger.info(f"Successfully fetched dashboard stats for season {dash_season}")
+                            self.logger.info("Successfully fetched dashboard stats for season %s", dash_season)
                             # Dashboard gives season averages, so we'll use those
                             # Convert to match our expected format by creating a synthetic games_df structure
                             season = dash_season
                             games_df = dashboard_df  # Use dashboard data
                             break
-                    except Exception as e:
-                        self.logger.debug(f"Dashboard endpoint error for season {dash_season}: {e}")
+                    except (ValueError, KeyError, AttributeError) as e:
+                        self.logger.debug("Dashboard endpoint error for season %s: %s", dash_season, e)
                         continue
             
             if games_df is None or games_df.empty:
-                self.logger.warning(f"No stats found for team '{team_name}' (team_id={team_id}) after trying TeamGameLog and TeamDashboard endpoints. Using placeholder data.")
-                return self._get_placeholder_stats(team_name)
+                self.logger.warning("No stats found for team '%s' (team_id=%s) after trying TeamGameLog and TeamDashboard endpoints. Using placeholder data.", team_name, team_id)
+                return self.get_placeholder_stats(team_name)
             
             # Check if we're using dashboard data (different structure) or game log data
             is_dashboard_data = games_df.shape[0] == 1 and 'FG_PCT' in games_df.columns and 'REB' in games_df.columns
@@ -288,6 +288,6 @@ class BasketballProvider:
             }
             
         except Exception as e:
-            self.logger.error(f"Error fetching stats for team '{team_name}': {e}", exc_info=True)
-            return self._get_placeholder_stats(team_name)
+            self.logger.error("Error fetching stats for team '%s': %s", team_name, e, exc_info=True)
+            return self.get_placeholder_stats(team_name)
 

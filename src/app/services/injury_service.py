@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Optional
+from typing import List, Dict
 import re
 
 logger = logging.getLogger(__name__)
@@ -25,8 +25,8 @@ class InjuryService:
         try:
             from ..providers.espn_provider import ESPNProvider, Sport, League
             self._espn_provider = ESPNProvider(sport=Sport.BASKETBALL, league=League.NBA)
-        except Exception as e:
-            self.logger.warning(f"Failed to initialize ESPN provider: {e}")
+        except (ImportError, ValueError, RuntimeError) as e:
+            self.logger.warning("Failed to initialize ESPN provider: %s", e)
             self._espn_provider = None
     
     def fetch_team_injuries(self, team_name: str) -> List[str]:
@@ -57,11 +57,11 @@ class InjuryService:
                 else:
                     injury_strings.append(f"{player} - {status}")
             
-            self.logger.info(f"Found {len(injury_strings)} injuries for {team_name}")
+            self.logger.info("Found %d injuries for %s", len(injury_strings), team_name)
             return injury_strings
             
-        except Exception as e:
-            self.logger.error(f"Error fetching injuries for {team_name}: {e}")
+        except (KeyError, TypeError, ValueError) as e:
+            self.logger.error("Error fetching injuries for %s: %s", team_name, e)
             return []
     
     def fetch_all_injuries(self) -> List[Dict[str, any]]:
@@ -76,8 +76,8 @@ class InjuryService:
         
         try:
             return self._espn_provider.get_injuries()
-        except Exception as e:
-            self.logger.error(f"Error fetching all injuries: {e}")
+        except (KeyError, TypeError, ValueError) as e:
+            self.logger.error("Error fetching all injuries: %s", e)
             return []
     
     def get_injury_report(self, team_name: str) -> Dict[str, List[Dict]]:
@@ -129,8 +129,8 @@ class InjuryService:
             
             return report
             
-        except Exception as e:
-            self.logger.error(f"Error getting injury report for {team_name}: {e}")
+        except (KeyError, TypeError, ValueError) as e:
+            self.logger.error("Error getting injury report for %s: %s", team_name, e)
             return {"out": [], "doubtful": [], "questionable": [], "probable": [], "day_to_day": []}
     
     def parse_injury_string(self, injury_string: str) -> Dict[str, str]:

@@ -12,6 +12,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from datetime import datetime
+import httpx
 from ..providers.espn_provider import ESPNProvider, Sport, League
 from ..providers.basketball_provider import BasketballProvider
 from ..services.scoring_service import ScoringService
@@ -160,8 +161,8 @@ def _calculate_team_score(team_name: str) -> float:
         # Cache the result
         _team_score_cache[cache_key] = (score, time.time())
         return score
-    except Exception as e:
-        logger.warning(f"Error calculating score for {team_name}: {e}")
+    except (ValueError, KeyError, TypeError) as e:
+        logger.warning("Error calculating score for %s: %s", team_name, e)
         return 0.5
 
 
@@ -198,7 +199,7 @@ def _get_team_recent_form(team_name: str) -> Dict[str, Any]:
     return form_data
 
 
-def _get_quick_h2h(team1: str, team2: str) -> HeadToHeadSummary:
+def _get_quick_h2h(_team1: str, _team2: str) -> HeadToHeadSummary:
     """
     Get a quick head-to-head summary for prediction purposes.
     
@@ -241,13 +242,14 @@ def _calculate_form_adjustment(form_data: Dict[str, Any]) -> float:
     return max(-0.08, min(0.08, record_adj + streak_adj))
 
 
-def _calculate_h2h_adjustment(h2h: HeadToHeadSummary, team_name: str, other_team: str, is_home: bool) -> float:
+def _calculate_h2h_adjustment(h2h: HeadToHeadSummary, team_name: str, _other_team: str, is_home: bool) -> float:
     """
     Calculate score adjustment based on head-to-head history.
     
     Returns:
         Adjustment between -0.05 and +0.05
     """
+    _ = is_home  # Currently unused but kept for future home advantage calculations
     if h2h.total_games == 0:
         return 0.0
     
@@ -390,7 +392,7 @@ def _generate_reasoning(
         elif odds.edge_score and odds.edge_score > 5:
             reasons.append(f"💰 We agree with Vegas but are MORE confident - {odds.edge_score:.1f}% edge")
         elif odds.vegas_favorite:
-            reasons.append(f"✅ Our pick aligns with Vegas favorite")
+            reasons.append("✅ Our pick aligns with Vegas favorite")
         
         if odds.spread is not None:
             spread_abs = abs(odds.spread)
@@ -425,7 +427,7 @@ def _parse_live_game_info(game_data: Dict[str, Any]) -> Optional[LiveGameInfo]:
         LiveGameInfo if game is in progress or final, None if scheduled
     """
     status = game_data.get("status", "").lower()
-    status_detail = game_data.get("status_detail", "")
+    # status_detail available via game_data.get("status_detail", "") if needed
     
     # Determine game state
     is_live = "in progress" in status or "halftime" in status
@@ -783,12 +785,12 @@ async def get_todays_games(
             predictions_generated=predictions_generated
         )
         
-    except Exception as e:
-        logger.error(f"Error fetching today's games: {e}", exc_info=True)
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        logger.error("Error fetching today's games: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch today's games: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/date/{date}", response_model=TodaysGamesResponse)
@@ -893,7 +895,7 @@ async def get_games_by_date(
                 status=event.get("status", {}).get("type", {}).get("description", "Unknown"),
                 status_detail=event.get("status", {}).get("type", {}).get("detail", ""),
                 venue=competition.get("venue", {}).get("fullName"),
-                broadcast=espn_provider._get_broadcast(competition),
+                broadcast=espn_provider.get_broadcast(competition),
                 home_team=TeamPrediction(
                     name=home_name,
                     abbreviation=home.get("team", {}).get("abbreviation", ""),
@@ -939,7 +941,7 @@ async def get_games_by_date(
         # Format date for response
         try:
             formatted_date = datetime.strptime(date, "%Y%m%d").strftime("%Y-%m-%d")
-        except:
+        except ValueError:
             formatted_date = date
         
         return TodaysGamesResponse(
@@ -949,12 +951,12 @@ async def get_games_by_date(
             predictions_generated=len(games)
         )
         
-    except Exception as e:
-        logger.error(f"Error fetching games for date {date}: {e}", exc_info=True)
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        logger.error("Error fetching games for date %s: %s", date, e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch games: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/head-to-head", response_model=HeadToHeadResponse)
@@ -1064,8 +1066,8 @@ async def get_head_to_head(
                 if len(games) >= limit:
                     break
                     
-            except Exception as e:
-                logger.debug(f"Error checking date {date_str}: {e}")
+            except (httpx.HTTPError, ValueError, KeyError) as e:
+                logger.debug("Error checking date %s: %s", date_str, e)
                 continue
         
         # Sort games by date (most recent first)
@@ -1095,12 +1097,12 @@ async def get_head_to_head(
             home_advantage=home_advantage
         )
         
-    except Exception as e:
-        logger.error(f"Error fetching head-to-head: {e}", exc_info=True)
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        logger.error("Error fetching head-to-head: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch head-to-head history: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{game_id}")
@@ -1112,7 +1114,6 @@ async def get_game_detail(game_id: str):
         # Get game summary from ESPN
         url = f"https://site.api.espn.com/apis/site/v2/sports/basketball/nba/summary?event={game_id}"
         
-        import httpx
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(url)
             response.raise_for_status()
@@ -1152,9 +1153,9 @@ async def get_game_detail(game_id: str):
         
         return result
         
-    except Exception as e:
-        logger.error(f"Error fetching game detail {game_id}: {e}", exc_info=True)
+    except (httpx.HTTPError, ValueError, KeyError) as e:
+        logger.error("Error fetching game detail %s: %s", game_id, e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch game details: {str(e)}"
-        )
+        ) from e

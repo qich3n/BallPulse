@@ -69,11 +69,11 @@ async def get_history(
         return HistoryResponse(entries=history_entries, total=len(history_entries))
         
     except Exception as e:
-        logger.error(f"Error fetching history: {e}", exc_info=True)
+        logger.error("Error fetching history: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch history: {str(e)}"
-        )
+        ) from e
 
 
 @router.get("/{entry_id}")
@@ -99,11 +99,11 @@ async def get_comparison_detail(entry_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching comparison detail: {e}", exc_info=True)
+        logger.error("Error fetching comparison detail: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to fetch comparison detail: {str(e)}"
-        )
+        ) from e
 
 
 @router.delete("")
@@ -118,8 +118,8 @@ async def clear_history():
         count = history_service.clear_history()
         return {"message": f"Cleared {count} history entries", "count": count}
     except Exception as e:
-        logger.error(f"Error clearing history: {e}", exc_info=True)
+        logger.error("Error clearing history: %s", e, exc_info=True)
         raise HTTPException(
             status_code=500,
             detail=f"Failed to clear history: {str(e)}"
-        )
+        ) from e

@@ -1,7 +1,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from slowapi import _rate_limit_exceeded_handler
@@ -19,14 +19,14 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     Modern lifespan context manager for startup/shutdown events.
     Replaces deprecated @app.on_event decorators.
     """
     # Startup
     logger.info("BallPulse application starting up...")
-    logger.info(f"Log level: {log_level}")
+    logger.info("Log level: %s", log_level)
     logger.info("BallPulse application started successfully")
     
     yield  # Application runs here

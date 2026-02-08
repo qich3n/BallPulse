@@ -155,7 +155,7 @@ def test_get_team_stats_summary_missing_columns(provider, mock_team_data):
 
 def test_get_placeholder_stats(provider):
     """Test placeholder stats generation"""
-    stats = provider._get_placeholder_stats("Test Team")
+    stats = provider.get_placeholder_stats("Test Team")
     
     assert stats['team_name'] == "Test Team"
     assert stats['data_source'] == "placeholder"

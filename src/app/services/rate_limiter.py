@@ -9,7 +9,6 @@ import logging
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
@@ -58,8 +57,8 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) 
         JSON response with error details
     """
     logger.warning(
-        f"Rate limit exceeded for IP: {get_client_ip(request)}, "
-        f"endpoint: {request.url.path}, limit: {exc.detail}"
+        "Rate limit exceeded for IP: %s, endpoint: %s, limit: %s",
+        get_client_ip(request), request.url.path, exc.detail
     )
     
     return JSONResponse(

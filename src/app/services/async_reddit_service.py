@@ -100,8 +100,8 @@ class AsyncRedditService:
                         user_agent=user_agent
                     )
                     self.logger.info("PRAW client initialized with credentials (fallback)")
-                except Exception as e:
-                    self.logger.warning(f"Failed to initialize PRAW client: {e}")
+                except (ImportError, praw.exceptions.PRAWException, ValueError) as e:
+                    self.logger.warning("Failed to initialize PRAW client: %s", e)
     
     def _get_team_subreddit(self, team_name: str) -> Optional[str]:
         """Get subreddit name for a team"""
@@ -125,16 +125,16 @@ class AsyncRedditService:
                     response.raise_for_status()
                     return response.json()
             except httpx.TimeoutException:
-                self.logger.warning(f"Timeout fetching {url} (attempt {attempt + 1}/{self.max_retries})")
+                self.logger.warning("Timeout fetching %s (attempt %d/%d)", url, attempt + 1, self.max_retries)
             except httpx.HTTPStatusError as e:
                 if e.response.status_code == 429:
-                    self.logger.warning(f"Rate limited by Reddit (attempt {attempt + 1}/{self.max_retries})")
+                    self.logger.warning("Rate limited by Reddit (attempt %d/%d)", attempt + 1, self.max_retries)
                     # Exponential backoff could be added here
                 else:
-                    self.logger.error(f"HTTP error fetching {url}: {e}")
+                    self.logger.error("HTTP error fetching %s: %s", url, e)
                     return None
-            except Exception as e:
-                self.logger.error(f"Error fetching Reddit JSON endpoint {url}: {e}")
+            except (httpx.RequestError, ValueError) as e:
+                self.logger.error("Error fetching Reddit JSON endpoint %s: %s", url, e)
                 return None
         
         return None
@@ -239,12 +239,12 @@ class AsyncRedditService:
             cache_key = f"reddit:team:{team_name.lower()}:{limit}"
             cached = self.cache_service.cache.get(cache_key)
             if cached:
-                self.logger.info(f"Cache hit for team posts: {team_name}")
+                self.logger.info("Cache hit for team posts: %s", team_name)
                 return cached
         
         subreddit = self._get_team_subreddit(team_name)
         if not subreddit:
-            self.logger.warning(f"No subreddit mapping found for team: {team_name}")
+            self.logger.warning("No subreddit mapping found for team: %s", team_name)
             return []
         
         # Use async JSON API

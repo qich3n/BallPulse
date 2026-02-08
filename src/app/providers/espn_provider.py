@@ -87,7 +87,7 @@ class ESPNProvider:
         self._team_cache: Dict[str, Dict[str, Any]] = {}
         self._teams_list: Optional[List[Dict[str, Any]]] = None
         
-        self.logger.info(f"ESPNProvider initialized for {sport.value}/{league.value}")
+        self.logger.info("ESPNProvider initialized for %s/%s", sport.value, league.value)
     
     def _build_url(self, endpoint: str, use_core: bool = False) -> str:
         """Build the full API URL"""
@@ -111,13 +111,13 @@ class ESPNProvider:
                 response.raise_for_status()
                 return response.json()
         except httpx.TimeoutException:
-            self.logger.error(f"Timeout fetching {url}")
+            self.logger.error("Timeout fetching %s", url)
             return None
         except httpx.HTTPStatusError as e:
-            self.logger.error(f"HTTP error {e.response.status_code} fetching {url}")
+            self.logger.error("HTTP error %d fetching %s", e.response.status_code, url)
             return None
-        except Exception as e:
-            self.logger.error(f"Error fetching {url}: {e}")
+        except (httpx.RequestError, ValueError) as e:
+            self.logger.error("Error fetching %s: %s", url, e)
             return None
     
     def _fetch_sync(self, url: str, params: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
@@ -137,13 +137,13 @@ class ESPNProvider:
                 response.raise_for_status()
                 return response.json()
         except httpx.TimeoutException:
-            self.logger.error(f"Timeout fetching {url}")
+            self.logger.error("Timeout fetching %s", url)
             return None
         except httpx.HTTPStatusError as e:
-            self.logger.error(f"HTTP error {e.response.status_code} fetching {url}")
+            self.logger.error("HTTP error %d fetching %s", e.response.status_code, url)
             return None
-        except Exception as e:
-            self.logger.error(f"Error fetching {url}: {e}")
+        except (httpx.RequestError, ValueError) as e:
+            self.logger.error("Error fetching %s: %s", url, e)
             return None
 
     # ==================== SCOREBOARD ====================
@@ -175,7 +175,6 @@ class ESPNProvider:
         Returns:
             List of game dictionaries with scores, teams, status
         """
-        from datetime import datetime
         import pytz
         
         # Use Eastern Time since ESPN/NBA uses ET for game dates
@@ -218,14 +217,14 @@ class ESPNProvider:
                         "winner": away.get("winner", False)
                     },
                     "venue": competition.get("venue", {}).get("fullName", ""),
-                    "broadcast": self._get_broadcast(competition),
+                    "broadcast": self.get_broadcast(competition),
                     "odds": self._get_odds(competition)
                 }
                 games.append(game)
         
         return games
     
-    def _get_broadcast(self, competition: Dict) -> str:
+    def get_broadcast(self, competition: Dict) -> str:
         """Extract broadcast info from competition"""
         broadcasts = competition.get("broadcasts", [])
         if broadcasts:
@@ -648,7 +647,7 @@ class ESPNProvider:
             "winner": competitor.get("winner", False)
         }
     
-    def _parse_boxscore(self, boxscore: Dict, home: Dict, away: Dict) -> Dict[str, Any]:
+    def _parse_boxscore(self, boxscore: Dict, home: Dict, _away: Dict) -> Dict[str, Any]:
         """Parse boxscore data"""
         result = {"home": {}, "away": {}}
         
@@ -831,4 +830,4 @@ class ESPNProvider:
         self.league = league
         self._team_cache.clear()
         self._teams_list = None
-        self.logger.info(f"ESPNProvider switched to {sport.value}/{league.value}")
+        self.logger.info("ESPNProvider switched to %s/%s", sport.value, league.value)

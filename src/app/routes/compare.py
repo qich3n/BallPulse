@@ -2,8 +2,6 @@ import logging
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 from ..services.cache_service import CacheService
 from ..services.scoring_service import ScoringService
 from ..services.proscons_service import ProsConsService
@@ -135,8 +133,8 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
     except Exception as e:
         logger.error("Error fetching stats: %s", e, exc_info=True)
         # Use placeholder stats as fallback
-        team1_stats = basketball_provider._get_placeholder_stats(team1_name)
-        team2_stats = basketball_provider._get_placeholder_stats(team2_name)
+        team1_stats = basketball_provider.get_placeholder_stats(team1_name)
+        team2_stats = basketball_provider.get_placeholder_stats(team2_name)
     
     try:
         # Get Reddit data (async)
@@ -339,5 +337,5 @@ async def compare(request: Request, body: CompareRequest) -> CompareResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to generate comparison: {str(e)}"
-        )
+        ) from e
 

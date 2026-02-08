@@ -64,8 +64,8 @@ async def get_scores(
                 "count": len(scores)
             }
     except Exception as e:
-        logger.error(f"Error fetching scores: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching scores: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/scores/live")
@@ -92,8 +92,8 @@ async def get_live_scores(
             "count": len(live_games)
         }
     except Exception as e:
-        logger.error(f"Error fetching live scores: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching live scores: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== TEAMS ====================
@@ -116,8 +116,8 @@ async def get_all_teams(
             "count": len(teams)
         }
     except Exception as e:
-        logger.error(f"Error fetching teams: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching teams: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/teams/{team_identifier}")
@@ -143,8 +143,8 @@ async def get_team(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching team {team_identifier}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching team %s: %s", team_identifier, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/teams/{team_identifier}/schedule")
@@ -167,8 +167,8 @@ async def get_team_schedule(
             "count": len(schedule)
         }
     except Exception as e:
-        logger.error(f"Error fetching schedule for {team_identifier}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching schedule for %s: %s", team_identifier, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/teams/{team_identifier}/news")
@@ -190,8 +190,8 @@ async def get_team_news(
             "count": len(news)
         }
     except Exception as e:
-        logger.error(f"Error fetching news for {team_identifier}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching news for %s: %s", team_identifier, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== NEWS ====================
@@ -216,8 +216,8 @@ async def get_news(
             "count": len(articles)
         }
     except Exception as e:
-        logger.error(f"Error fetching news: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching news: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== INJURIES ====================
@@ -245,8 +245,8 @@ async def get_injuries(
             "count": len(injuries)
         }
     except Exception as e:
-        logger.error(f"Error fetching injuries: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching injuries: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/injuries/{team_identifier}")
@@ -268,8 +268,8 @@ async def get_team_injuries(
             "count": len(injuries)
         }
     except Exception as e:
-        logger.error(f"Error fetching injuries for {team_identifier}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching injuries for %s: %s", team_identifier, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== STANDINGS ====================
@@ -292,8 +292,8 @@ async def get_standings(
             "standings": standings
         }
     except Exception as e:
-        logger.error(f"Error fetching standings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching standings: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== GAME DETAILS ====================
@@ -321,8 +321,8 @@ async def get_game_details(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error fetching game {game_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching game %s: %s", game_id, e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== RANKINGS (College Sports) ====================
@@ -350,8 +350,8 @@ async def get_rankings(
             "rankings": rankings
         }
     except Exception as e:
-        logger.error(f"Error fetching rankings: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Error fetching rankings: %s", e)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 # ==================== SUPPORTED LEAGUES ====================
