@@ -27,7 +27,10 @@ scoring_service = ScoringService()
 
 # Simple in-memory cache for team scores (refreshed every 30 minutes)
 _team_score_cache: Dict[str, tuple] = {}  # {team_name: (score, timestamp)}
+_team_form_cache: Dict[str, tuple] = {}  # {team_name: (form_data, timestamp)}
+_h2h_cache: Dict[str, tuple] = {}  # {"team1_team2": (h2h_data, timestamp)}
 _CACHE_TTL = 1800  # 30 minutes
+_H2H_CACHE_TTL = 3600  # 1 hour for H2H data
 
 
 # ==================== Models ====================
@@ -41,6 +44,9 @@ class TeamPrediction(BaseModel):
     strength_score: float = Field(description="Team strength rating 0-100%")
     win_probability: float = Field(description="Win probability for this team 0-100%")
     stats_available: bool = True
+    recent_form: Optional[str] = Field(None, description="Recent form (e.g., 'W5' for 5-game win streak)")
+    last_10_record: Optional[str] = Field(None, description="Record in last 10 games (e.g., '7-3')")
+    is_hot: bool = Field(False, description="True if team is on fire (6+ wins in last 10)")
 
 
 class OddsComparison(BaseModel):
@@ -59,6 +65,16 @@ class OddsComparison(BaseModel):
     edge: Optional[str] = Field(None, description="Potential betting edge if disagreement")
 
 
+class HeadToHeadSummary(BaseModel):
+    """Brief head-to-head summary for prediction context"""
+    total_games: int = 0
+    team1_wins: int = 0
+    team2_wins: int = 0
+    dominant_team: Optional[str] = None
+    last_winner: Optional[str] = None
+    home_team_wins_at_home: int = 0
+
+
 class GamePrediction(BaseModel):
     """Game with prediction and odds"""
     game_id: str
@@ -74,6 +90,7 @@ class GamePrediction(BaseModel):
     confidence: str
     odds: Optional[OddsComparison] = None
     reasoning: List[str] = Field(default_factory=list, description="Reasons for the prediction")
+    head_to_head: Optional[HeadToHeadSummary] = Field(None, description="Recent head-to-head history")
 
 
 class TodaysGamesResponse(BaseModel):
@@ -133,6 +150,266 @@ def _calculate_team_score(team_name: str) -> float:
         return 0.5
 
 
+def _get_team_recent_form(team_name: str) -> Dict[str, Any]:
+    """
+    Get recent form data for a team (streak, last 10 record).
+    
+    Returns:
+        Dict with streak, last_10_wins, last_10_losses, is_hot, form_string
+    """
+    import time
+    
+    cache_key = team_name.lower()
+    if cache_key in _team_form_cache:
+        cached_form, cached_time = _team_form_cache[cache_key]
+        if time.time() - cached_time < _CACHE_TTL:
+            return cached_form
+    
+    try:
+        team_info = espn_provider.get_team(team_name)
+        if not team_info:
+            return {"streak": 0, "last_10_wins": 5, "last_10_losses": 5, "is_hot": False, "form_string": ""}
+        
+        record = team_info.get("record", {})
+        streak = record.get("streak", 0)
+        
+        # Parse home/away records for recent performance estimate
+        wins = record.get("wins", 0)
+        losses = record.get("losses", 0)
+        total_games = wins + losses
+        
+        # Estimate last 10 based on streak and overall record
+        # If positive streak, weight recent games as wins
+        if total_games > 0:
+            win_rate = wins / total_games
+            if streak > 0:  # Winning streak
+                last_10_wins = min(10, max(int(win_rate * 10) + 1, streak))
+            elif streak < 0:  # Losing streak
+                last_10_wins = max(0, min(int(win_rate * 10) - 1, 10 - abs(streak)))
+            else:
+                last_10_wins = int(win_rate * 10)
+            last_10_losses = 10 - last_10_wins
+        else:
+            last_10_wins = 5
+            last_10_losses = 5
+        
+        # Determine if team is "hot" (6+ wins in last 10 or on 4+ win streak)
+        is_hot = last_10_wins >= 6 or streak >= 4
+        is_cold = last_10_wins <= 3 or streak <= -4
+        
+        # Build form string (e.g., "W5" for 5-game win streak)
+        if streak > 0:
+            form_string = f"W{streak}"
+        elif streak < 0:
+            form_string = f"L{abs(streak)}"
+        else:
+            form_string = ""
+        
+        form_data = {
+            "streak": streak,
+            "last_10_wins": last_10_wins,
+            "last_10_losses": last_10_losses,
+            "is_hot": is_hot,
+            "is_cold": is_cold,
+            "form_string": form_string,
+            "last_10_record": f"{last_10_wins}-{last_10_losses}"
+        }
+        
+        _team_form_cache[cache_key] = (form_data, time.time())
+        return form_data
+        
+    except Exception as e:
+        logger.warning(f"Error getting recent form for {team_name}: {e}")
+        return {"streak": 0, "last_10_wins": 5, "last_10_losses": 5, "is_hot": False, "is_cold": False, "form_string": "", "last_10_record": "5-5"}
+
+
+def _get_quick_h2h(team1: str, team2: str) -> HeadToHeadSummary:
+    """
+    Get a quick head-to-head summary for prediction purposes.
+    Uses cache to avoid repeated API calls.
+    
+    Returns:
+        HeadToHeadSummary with basic H2H stats
+    """
+    import time
+    from datetime import timedelta
+    
+    # Create normalized cache key
+    teams_sorted = sorted([team1.lower(), team2.lower()])
+    cache_key = f"{teams_sorted[0]}_{teams_sorted[1]}"
+    
+    if cache_key in _h2h_cache:
+        cached_h2h, cached_time = _h2h_cache[cache_key]
+        if time.time() - cached_time < _H2H_CACHE_TTL:
+            return cached_h2h
+    
+    try:
+        team1_lower = team1.lower()
+        team2_lower = team2.lower()
+        
+        # Get team info for accurate matching
+        team1_info = espn_provider.get_team(team1)
+        team2_info = espn_provider.get_team(team2)
+        
+        team1_abbrev = team1_info.get("abbreviation", "").lower() if team1_info else ""
+        team2_abbrev = team2_info.get("abbreviation", "").lower() if team2_info else ""
+        
+        games_found = []
+        team1_wins = 0
+        team2_wins = 0
+        
+        # Check last 30 days for quick lookup
+        current_date = datetime.now()
+        
+        for days_back in range(30):
+            check_date = current_date - timedelta(days=days_back)
+            date_str = check_date.strftime("%Y%m%d")
+            
+            try:
+                scoreboard = espn_provider.get_scoreboard(date=date_str)
+                
+                for event in scoreboard.get("events", []):
+                    competition = event.get("competitions", [{}])[0]
+                    competitors = competition.get("competitors", [])
+                    
+                    if len(competitors) < 2:
+                        continue
+                    
+                    home = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0])
+                    away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
+                    
+                    home_name = home.get("team", {}).get("displayName", "").lower()
+                    away_name = away.get("team", {}).get("displayName", "").lower()
+                    home_abbrev = home.get("team", {}).get("abbreviation", "").lower()
+                    away_abbrev = away.get("team", {}).get("abbreviation", "").lower()
+                    
+                    # Check if this game involves both teams
+                    team1_in_game = (team1_lower in home_name or team1_lower in away_name or
+                                   team1_abbrev == home_abbrev or team1_abbrev == away_abbrev)
+                    team2_in_game = (team2_lower in home_name or team2_lower in away_name or
+                                   team2_abbrev == home_abbrev or team2_abbrev == away_abbrev)
+                    
+                    if team1_in_game and team2_in_game:
+                        status = event.get("status", {}).get("type", {}).get("name", "")
+                        if status == "STATUS_FINAL":
+                            home_score = int(home.get("score", 0))
+                            away_score = int(away.get("score", 0))
+                            winner = home.get("team", {}).get("displayName") if home_score > away_score else away.get("team", {}).get("displayName")
+                            
+                            games_found.append({
+                                "winner": winner,
+                                "home_team": home.get("team", {}).get("displayName"),
+                                "is_home_winner": home_score > away_score
+                            })
+                            
+                            if team1_lower in winner.lower() or team1_abbrev in winner.lower():
+                                team1_wins += 1
+                            else:
+                                team2_wins += 1
+                            
+                            if len(games_found) >= 5:
+                                break
+                
+                if len(games_found) >= 5:
+                    break
+                    
+            except Exception:
+                continue
+        
+        # Determine dominant team
+        dominant_team = None
+        if team1_wins > team2_wins:
+            dominant_team = team1
+        elif team2_wins > team1_wins:
+            dominant_team = team2
+        
+        # Count home wins at home
+        home_team_wins_at_home = sum(1 for g in games_found if g.get("is_home_winner", False))
+        
+        h2h_summary = HeadToHeadSummary(
+            total_games=len(games_found),
+            team1_wins=team1_wins,
+            team2_wins=team2_wins,
+            dominant_team=dominant_team,
+            last_winner=games_found[0]["winner"] if games_found else None,
+            home_team_wins_at_home=home_team_wins_at_home
+        )
+        
+        _h2h_cache[cache_key] = (h2h_summary, time.time())
+        return h2h_summary
+        
+    except Exception as e:
+        logger.warning(f"Error getting H2H for {team1} vs {team2}: {e}")
+        return HeadToHeadSummary()
+
+
+def _calculate_form_adjustment(form_data: Dict[str, Any]) -> float:
+    """
+    Calculate score adjustment based on recent form.
+    
+    Returns:
+        Adjustment between -0.08 and +0.08
+    """
+    last_10_wins = form_data.get("last_10_wins", 5)
+    streak = form_data.get("streak", 0)
+    
+    # Base adjustment from last 10 record (neutral at 5-5)
+    record_adj = (last_10_wins - 5) * 0.01  # -0.05 to +0.05
+    
+    # Streak bonus/penalty
+    if streak >= 5:
+        streak_adj = 0.03  # Hot streak bonus
+    elif streak >= 3:
+        streak_adj = 0.015
+    elif streak <= -5:
+        streak_adj = -0.03  # Cold streak penalty
+    elif streak <= -3:
+        streak_adj = -0.015
+    else:
+        streak_adj = 0
+    
+    return max(-0.08, min(0.08, record_adj + streak_adj))
+
+
+def _calculate_h2h_adjustment(h2h: HeadToHeadSummary, team_name: str, other_team: str, is_home: bool) -> float:
+    """
+    Calculate score adjustment based on head-to-head history.
+    
+    Returns:
+        Adjustment between -0.05 and +0.05
+    """
+    if h2h.total_games == 0:
+        return 0.0
+    
+    # Check if this team dominates the matchup
+    team_wins = 0
+    other_wins = 0
+    
+    team_lower = team_name.lower()
+    if h2h.dominant_team and team_lower in h2h.dominant_team.lower():
+        team_wins = h2h.team1_wins if h2h.team1_wins > h2h.team2_wins else h2h.team2_wins
+        other_wins = h2h.total_games - team_wins
+    elif h2h.dominant_team:
+        other_wins = h2h.team1_wins if h2h.team1_wins > h2h.team2_wins else h2h.team2_wins
+        team_wins = h2h.total_games - other_wins
+    else:
+        # Split evenly
+        return 0.0
+    
+    # Win rate differential
+    if h2h.total_games >= 2:
+        win_rate = team_wins / h2h.total_games
+        h2h_adj = (win_rate - 0.5) * 0.1  # -0.05 to +0.05
+    else:
+        h2h_adj = 0.0
+    
+    # Small bonus if last game winner & playing at home
+    if h2h.last_winner and team_lower in h2h.last_winner.lower() and is_home:
+        h2h_adj += 0.01
+    
+    return max(-0.05, min(0.05, h2h_adj))
+
+
 def _generate_reasoning(
     winner_name: str,
     loser_name: str,
@@ -140,7 +417,10 @@ def _generate_reasoning(
     loser_score: float,
     win_probability: float,
     is_home: bool,
-    odds: Optional[OddsComparison] = None
+    odds: Optional[OddsComparison] = None,
+    winner_form: Optional[Dict[str, Any]] = None,
+    loser_form: Optional[Dict[str, Any]] = None,
+    h2h: Optional[HeadToHeadSummary] = None
 ) -> List[str]:
     """
     Generate human-readable reasoning for why we picked a team.
@@ -153,6 +433,9 @@ def _generate_reasoning(
         win_probability: Calculated win probability
         is_home: Whether winner is home team
         odds: Optional odds comparison data
+        winner_form: Optional recent form data for winner
+        loser_form: Optional recent form data for loser
+        h2h: Optional head-to-head summary
     
     Returns:
         List of reasoning strings
@@ -169,6 +452,48 @@ def _generate_reasoning(
         reasons.append(f"📊 {winner_name} has a slight edge in overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
     else:
         reasons.append(f"📊 Both teams are closely matched in strength ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
+    
+    # Recent form / momentum
+    if winner_form:
+        winner_streak = winner_form.get("streak", 0)
+        winner_last_10 = winner_form.get("last_10_record", "")
+        
+        if winner_form.get("is_hot"):
+            if winner_streak >= 5:
+                reasons.append(f"🔥 {winner_name} is ON FIRE with a {winner_streak}-game win streak!")
+            elif winner_streak >= 3:
+                reasons.append(f"🔥 {winner_name} is hot with a {winner_streak}-game win streak ({winner_last_10} in last 10)")
+            else:
+                reasons.append(f"📈 {winner_name} is playing well lately ({winner_last_10} in last 10)")
+        elif winner_streak >= 2:
+            reasons.append(f"✨ {winner_name} has won {winner_streak} straight games")
+    
+    if loser_form:
+        loser_streak = loser_form.get("streak", 0)
+        loser_last_10 = loser_form.get("last_10_record", "")
+        
+        if loser_form.get("is_cold"):
+            if loser_streak <= -5:
+                reasons.append(f"❄️ {loser_name} is struggling badly with a {abs(loser_streak)}-game losing streak")
+            elif loser_streak <= -3:
+                reasons.append(f"📉 {loser_name} is cold with a {abs(loser_streak)}-game losing streak ({loser_last_10} in last 10)")
+            else:
+                reasons.append(f"📉 {loser_name} has been struggling lately ({loser_last_10} in last 10)")
+    
+    # Head-to-head history
+    if h2h and h2h.total_games > 0:
+        winner_lower = winner_name.lower()
+        if h2h.dominant_team and winner_lower in h2h.dominant_team.lower():
+            if h2h.total_games >= 2:
+                winner_h2h_wins = h2h.team1_wins if h2h.team1_wins > h2h.team2_wins else h2h.team2_wins
+                reasons.append(f"🏆 {winner_name} owns the head-to-head ({winner_h2h_wins}-{h2h.total_games - winner_h2h_wins} in recent meetings)")
+        elif h2h.dominant_team:
+            # Loser dominates H2H - worth noting as a contrarian pick
+            reasons.append(f"⚠️ {loser_name} has the edge historically, but current form favors {winner_name}")
+        
+        if h2h.last_winner:
+            if winner_lower in h2h.last_winner.lower():
+                reasons.append(f"👊 {winner_name} won the last meeting between these teams")
     
     # Home court advantage
     if is_home:
@@ -390,8 +715,27 @@ async def get_todays_games(request: Request):
             away_name = away_info.get("name", "Unknown")
             
             # Calculate team strength scores (0-1 scale)
-            home_score = _calculate_team_score(home_name)
-            away_score = _calculate_team_score(away_name)
+            home_base_score = _calculate_team_score(home_name)
+            away_base_score = _calculate_team_score(away_name)
+            
+            # Get recent form data
+            home_form = _get_team_recent_form(home_name)
+            away_form = _get_team_recent_form(away_name)
+            
+            # Get head-to-head data
+            h2h = _get_quick_h2h(home_name, away_name)
+            
+            # Apply form adjustments
+            home_form_adj = _calculate_form_adjustment(home_form)
+            away_form_adj = _calculate_form_adjustment(away_form)
+            
+            # Apply H2H adjustments
+            home_h2h_adj = _calculate_h2h_adjustment(h2h, home_name, away_name, is_home=True)
+            away_h2h_adj = _calculate_h2h_adjustment(h2h, away_name, home_name, is_home=False)
+            
+            # Calculate adjusted scores
+            home_score = min(1.0, max(0.0, home_base_score + home_form_adj + home_h2h_adj))
+            away_score = min(1.0, max(0.0, away_base_score + away_form_adj + away_h2h_adj))
             
             # Calculate win probability using sigmoid function with home court advantage
             home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
@@ -413,7 +757,7 @@ async def get_todays_games(request: Request):
                 win_probability
             )
             
-            # Generate reasoning for the pick
+            # Generate reasoning for the pick (now includes form and H2H)
             winner_is_home = predicted_winner == home_name
             reasoning = _generate_reasoning(
                 winner_name=predicted_winner,
@@ -422,7 +766,10 @@ async def get_todays_games(request: Request):
                 loser_score=away_score if winner_is_home else home_score,
                 win_probability=win_probability,
                 is_home=winner_is_home,
-                odds=odds_comparison
+                odds=odds_comparison,
+                winner_form=home_form if winner_is_home else away_form,
+                loser_form=away_form if winner_is_home else home_form,
+                h2h=h2h
             )
             
             game_prediction = GamePrediction(
@@ -439,7 +786,10 @@ async def get_todays_games(request: Request):
                     logo=home_info.get("logo"),
                     strength_score=round(home_score * 100, 1),
                     win_probability=round(home_win_prob * 100, 1),
-                    stats_available=home_score != 0.5
+                    stats_available=home_base_score != 0.5,
+                    recent_form=home_form.get("form_string"),
+                    last_10_record=home_form.get("last_10_record"),
+                    is_hot=home_form.get("is_hot", False)
                 ),
                 away_team=TeamPrediction(
                     name=away_name,
@@ -448,13 +798,17 @@ async def get_todays_games(request: Request):
                     logo=away_info.get("logo"),
                     strength_score=round(away_score * 100, 1),
                     win_probability=round((1 - home_win_prob) * 100, 1),
-                    stats_available=away_score != 0.5
+                    stats_available=away_base_score != 0.5,
+                    recent_form=away_form.get("form_string"),
+                    last_10_record=away_form.get("last_10_record"),
+                    is_hot=away_form.get("is_hot", False)
                 ),
                 predicted_winner=predicted_winner,
                 win_probability=round(win_probability, 3),
                 confidence=_get_confidence_label(win_probability),
                 odds=odds_comparison,
-                reasoning=reasoning
+                reasoning=reasoning,
+                head_to_head=h2h if h2h.total_games > 0 else None
             )
             
             games.append(game_prediction)
@@ -502,9 +856,26 @@ async def get_games_by_date(date: str):
             home_name = home.get("team", {}).get("displayName", "Unknown")
             away_name = away.get("team", {}).get("displayName", "Unknown")
             
-            # Calculate predictions using sigmoid function
-            home_score = _calculate_team_score(home_name)
-            away_score = _calculate_team_score(away_name)
+            # Calculate base team strength scores
+            home_base_score = _calculate_team_score(home_name)
+            away_base_score = _calculate_team_score(away_name)
+            
+            # Get recent form data
+            home_form = _get_team_recent_form(home_name)
+            away_form = _get_team_recent_form(away_name)
+            
+            # Get head-to-head data
+            h2h = _get_quick_h2h(home_name, away_name)
+            
+            # Apply adjustments
+            home_form_adj = _calculate_form_adjustment(home_form)
+            away_form_adj = _calculate_form_adjustment(away_form)
+            home_h2h_adj = _calculate_h2h_adjustment(h2h, home_name, away_name, is_home=True)
+            away_h2h_adj = _calculate_h2h_adjustment(h2h, away_name, home_name, is_home=False)
+            
+            home_score = min(1.0, max(0.0, home_base_score + home_form_adj + home_h2h_adj))
+            away_score = min(1.0, max(0.0, away_base_score + away_form_adj + away_h2h_adj))
+            
             home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
             
             if home_win_prob >= 0.5:
@@ -528,6 +899,21 @@ async def get_games_by_date(date: str):
             
             odds_comparison = _parse_odds_comparison(odds_data, home_name, away_name, predicted_winner, win_probability)
             
+            # Generate reasoning
+            winner_is_home = predicted_winner == home_name
+            reasoning = _generate_reasoning(
+                winner_name=predicted_winner,
+                loser_name=away_name if winner_is_home else home_name,
+                winner_score=home_score if winner_is_home else away_score,
+                loser_score=away_score if winner_is_home else home_score,
+                win_probability=win_probability,
+                is_home=winner_is_home,
+                odds=odds_comparison,
+                winner_form=home_form if winner_is_home else away_form,
+                loser_form=away_form if winner_is_home else home_form,
+                h2h=h2h
+            )
+            
             game_prediction = GamePrediction(
                 game_id=event.get("id", ""),
                 date=event.get("date", date),
@@ -542,7 +928,10 @@ async def get_games_by_date(date: str):
                     logo=home.get("team", {}).get("logo"),
                     strength_score=round(home_score * 100, 1),
                     win_probability=round(home_win_prob * 100, 1),
-                    stats_available=True
+                    stats_available=home_base_score != 0.5,
+                    recent_form=home_form.get("form_string"),
+                    last_10_record=home_form.get("last_10_record"),
+                    is_hot=home_form.get("is_hot", False)
                 ),
                 away_team=TeamPrediction(
                     name=away_name,
@@ -551,12 +940,17 @@ async def get_games_by_date(date: str):
                     logo=away.get("team", {}).get("logo"),
                     strength_score=round(away_score * 100, 1),
                     win_probability=round((1 - home_win_prob) * 100, 1),
-                    stats_available=True
+                    stats_available=away_base_score != 0.5,
+                    recent_form=away_form.get("form_string"),
+                    last_10_record=away_form.get("last_10_record"),
+                    is_hot=away_form.get("is_hot", False)
                 ),
                 predicted_winner=predicted_winner,
                 win_probability=round(win_probability, 3),
                 confidence=_get_confidence_label(win_probability),
-                odds=odds_comparison
+                odds=odds_comparison,
+                reasoning=reasoning,
+                head_to_head=h2h if h2h.total_games > 0 else None
             )
             
             games.append(game_prediction)
