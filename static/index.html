@@ -292,16 +292,77 @@
             margin-bottom: 24px;
         }
 
+        /* Mobile menu toggle - hidden on desktop */
+        .menu-toggle {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            padding: 0;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-size: 22px;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .menu-toggle:hover {
+            background: var(--bg-hover);
+            border-color: var(--border-light);
+        }
+        .menu-toggle .icon-menu { display: block; }
+        .menu-toggle .icon-close { display: none; }
+        .menu-toggle.is-open .icon-menu { display: none; }
+        .menu-toggle.is-open .icon-close { display: block; }
+
+        /* Sidebar overlay for mobile - tap to close */
+        .sidebar-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 998;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
             }
+            .menu-toggle {
+                display: flex;
+            }
             .sidebar {
                 transform: translateX(-100%);
-                transition: transform 0.3s;
+                transition: transform 0.3s ease;
+                z-index: 999;
+                box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .header-bar {
+                gap: 12px;
+            }
+            .header-title {
+                font-size: 22px;
+                line-height: 1.3;
+                flex: 1;
+                min-width: 0;
             }
             .main-content {
                 margin-left: 0;
+                padding: 16px;
+            }
+            body.sidebar-open {
+                overflow: hidden;
+            }
+            .sidebar-overlay.visible {
+                display: block;
+                opacity: 1;
             }
         }
 
@@ -2129,8 +2190,10 @@
     </style>
 </head>
 <body>
+    <!-- Overlay for mobile sidebar (tap to close) -->
+    <div class="sidebar-overlay" id="sidebarOverlay" aria-hidden="true"></div>
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="logo">
             <div class="logo-icon">🏀</div>
             <div class="logo-text">BallPulse</div>
@@ -2213,6 +2276,10 @@
     <!-- Main Content -->
     <main class="main-content">
         <div class="header-bar">
+            <button type="button" class="menu-toggle" id="menuToggle" aria-label="Open menu" aria-expanded="false">
+                <span class="icon-menu">☰</span>
+                <span class="icon-close">✕</span>
+            </button>
             <h1 class="header-title" id="pageTitle">Matchup Predictor</h1>
             <div class="header-meta">
                 <div class="status-indicator">
@@ -2778,9 +2845,50 @@
                 const page = link.getAttribute('data-page');
                 if (page) {
                     navigateToPage(page);
+                    closeMobileSidebar();
                 }
             });
         });
+
+        // Mobile sidebar: open/close
+        function openMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const toggle = document.getElementById('menuToggle');
+            if (sidebar && overlay && toggle) {
+                sidebar.classList.add('open');
+                overlay.classList.add('visible');
+                toggle.classList.add('is-open');
+                toggle.setAttribute('aria-label', 'Close menu');
+                toggle.setAttribute('aria-expanded', 'true');
+                overlay.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('sidebar-open');
+            }
+        }
+        function closeMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            const toggle = document.getElementById('menuToggle');
+            if (sidebar && overlay && toggle) {
+                sidebar.classList.remove('open');
+                overlay.classList.remove('visible');
+                toggle.classList.remove('is-open');
+                toggle.setAttribute('aria-label', 'Open menu');
+                toggle.setAttribute('aria-expanded', 'false');
+                overlay.setAttribute('aria-hidden', 'true');
+                document.body.classList.remove('sidebar-open');
+            }
+        }
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar && sidebar.classList.contains('open')) {
+                closeMobileSidebar();
+            } else {
+                openMobileSidebar();
+            }
+        }
+        document.getElementById('menuToggle')?.addEventListener('click', toggleMobileSidebar);
+        document.getElementById('sidebarOverlay')?.addEventListener('click', closeMobileSidebar);
 
         function showEmptyState(containerId, icon, message) {
             const container = document.getElementById(containerId);
