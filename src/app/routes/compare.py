@@ -58,6 +58,7 @@ class MatchupAnalysis(BaseModel):
     win_probability: float = Field(..., ge=0.0, le=1.0, description="Win probability for team1")
     score_breakdown: str = Field(..., description="Predicted score breakdown")
     confidence_label: str = Field(..., description="Confidence level label")
+    prediction_factors: Optional[Dict[str, Any]] = Field(default=None, description="Detailed prediction factors")
 
 
 class Sources(BaseModel):
@@ -233,7 +234,8 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
             predicted_winner=matchup_result['predicted_winner'],
             win_probability=matchup_result['win_probability'],
             score_breakdown=matchup_result['score_breakdown'],
-            confidence_label=matchup_result['confidence_label']
+            confidence_label=matchup_result['confidence_label'],
+            prediction_factors=matchup_result.get('prediction_factors')
         ),
         sources=Sources(
             reddit=reddit_sources if reddit_sources else ["No Reddit sources available"],

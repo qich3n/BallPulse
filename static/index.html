@@ -2059,6 +2059,179 @@
             margin-top: 12px;
         }
 
+        /* Prediction Factors Section */
+        .prediction-factors {
+            margin-top: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .factors-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.2s;
+        }
+
+        .factors-header:hover {
+            background: var(--bg-tertiary);
+        }
+
+        .factors-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .factors-toggle {
+            font-size: 18px;
+            color: var(--text-muted);
+            transition: transform 0.3s;
+        }
+
+        .factors-header.expanded .factors-toggle {
+            transform: rotate(180deg);
+        }
+
+        .factors-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .factors-content.expanded {
+            max-height: 2000px;
+        }
+
+        .factors-body {
+            padding: 0 20px 20px 20px;
+        }
+
+        .factor-group {
+            margin-bottom: 24px;
+        }
+
+        .factor-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .factor-group-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .factor-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            border-left: 3px solid transparent;
+        }
+
+        .factor-item.advantage-team1 {
+            border-left-color: var(--primary);
+        }
+
+        .factor-item.advantage-team2 {
+            border-left-color: var(--secondary);
+        }
+
+        .factor-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            flex: 1;
+        }
+
+        .factor-values {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+
+        .factor-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            min-width: 60px;
+            text-align: right;
+        }
+
+        .factor-value.advantage {
+            color: var(--success);
+        }
+
+        .factor-vs {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .injury-list {
+            list-style: none;
+            margin-top: 8px;
+        }
+
+        .injury-item {
+            padding: 6px 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 2px solid var(--danger);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .score-breakdown-detail {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .score-detail-item {
+            padding: 10px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            font-size: 12px;
+        }
+
+        .score-detail-label {
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .score-detail-value {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .score-detail-value.positive {
+            color: var(--success);
+        }
+
+        .score-detail-value.negative {
+            color: var(--danger);
+        }
+
         /* ==================== Head-to-Head Styles ==================== */
         .h2h-form {
             display: flex;
@@ -2637,6 +2810,234 @@
             return name.split(' ').map(word => word[0]).join('').substring(0, 3).toUpperCase();
         }
 
+        function renderPredictionFactors(factors, team1Name, team2Name) {
+            if (!factors) return '';
+            
+            const stats = factors.stats || {};
+            const sentiment = factors.sentiment || {};
+            const injuries = factors.injuries || {};
+            const scoreBreakdown = factors.score_breakdown || {};
+            
+            let html = `
+                <div class="prediction-factors">
+                    <div class="factors-header" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('expanded');">
+                        <div class="factors-title">
+                            <span>📊</span>
+                            <span>Prediction Factors</span>
+                        </div>
+                        <div class="factors-toggle">▼</div>
+                    </div>
+                    <div class="factors-content">
+                        <div class="factors-body">
+            `;
+            
+            // Stats Comparison
+            if (stats.shooting_pct || stats.rebounding_avg || stats.turnovers_avg || stats.net_rating_proxy) {
+                html += `
+                    <div class="factor-group">
+                        <div class="factor-group-title">📈 Statistical Comparison</div>
+                `;
+                
+                if (stats.shooting_pct) {
+                    const adv = stats.shooting_pct.advantage;
+                    html += `
+                        <div class="factor-item advantage-${adv}">
+                            <div class="factor-label">Field Goal %</div>
+                            <div class="factor-values">
+                                <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">${(stats.shooting_pct.team1 * 100).toFixed(1)}%</div>
+                                <div class="factor-vs">vs</div>
+                                <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">${(stats.shooting_pct.team2 * 100).toFixed(1)}%</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (stats.rebounding_avg) {
+                    const adv = stats.rebounding_avg.advantage;
+                    html += `
+                        <div class="factor-item advantage-${adv}">
+                            <div class="factor-label">Rebounds per Game</div>
+                            <div class="factor-values">
+                                <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">${stats.rebounding_avg.team1.toFixed(1)}</div>
+                                <div class="factor-vs">vs</div>
+                                <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">${stats.rebounding_avg.team2.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (stats.turnovers_avg) {
+                    const adv = stats.turnovers_avg.advantage;
+                    html += `
+                        <div class="factor-item advantage-${adv}">
+                            <div class="factor-label">Turnovers per Game (lower is better)</div>
+                            <div class="factor-values">
+                                <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">${stats.turnovers_avg.team1.toFixed(1)}</div>
+                                <div class="factor-vs">vs</div>
+                                <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">${stats.turnovers_avg.team2.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                if (stats.net_rating_proxy) {
+                    const adv = stats.net_rating_proxy.advantage;
+                    const sign1 = stats.net_rating_proxy.team1 >= 0 ? '+' : '';
+                    const sign2 = stats.net_rating_proxy.team2 >= 0 ? '+' : '';
+                    html += `
+                        <div class="factor-item advantage-${adv}">
+                            <div class="factor-label">Point Differential</div>
+                            <div class="factor-values">
+                                <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">${sign1}${stats.net_rating_proxy.team1.toFixed(1)}</div>
+                                <div class="factor-vs">vs</div>
+                                <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">${sign2}${stats.net_rating_proxy.team2.toFixed(1)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += `</div>`;
+            }
+            
+            // Sentiment Factors
+            if (sentiment.team1 || sentiment.team2) {
+                html += `
+                    <div class="factor-group">
+                        <div class="factor-group-title">💬 Fan Sentiment</div>
+                `;
+                
+                const team1Sent = sentiment.team1 || {label: 'Neutral', positive_pct: 0, negative_pct: 0};
+                const team2Sent = sentiment.team2 || {label: 'Neutral', positive_pct: 0, negative_pct: 0};
+                const adv = sentiment.advantage || 'team1';
+                
+                html += `
+                    <div class="factor-item advantage-${adv}">
+                        <div class="factor-label">Sentiment</div>
+                        <div class="factor-values">
+                            <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">${team1Sent.label} (${team1Sent.positive_pct}% pos)</div>
+                            <div class="factor-vs">vs</div>
+                            <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">${team2Sent.label} (${team2Sent.positive_pct}% pos)</div>
+                        </div>
+                    </div>
+                `;
+                
+                html += `</div>`;
+            }
+            
+            // Injury Factors
+            if (injuries.team1 || injuries.team2) {
+                html += `
+                    <div class="factor-group">
+                        <div class="factor-group-title">🏥 Injury Impact</div>
+                `;
+                
+                const team1Inj = injuries.team1 || {count: 0, significant: 0, players: []};
+                const team2Inj = injuries.team2 || {count: 0, significant: 0, players: []};
+                const adv = injuries.advantage || 'team1';
+                
+                html += `
+                    <div class="factor-item advantage-${adv}">
+                        <div class="factor-label">Key Injuries</div>
+                        <div class="factor-values">
+                            <div class="factor-value ${adv === 'team1' ? 'advantage' : ''}">
+                                ${team1Inj.significant} out, ${team1Inj.questionable} questionable
+                            </div>
+                            <div class="factor-vs">vs</div>
+                            <div class="factor-value ${adv === 'team2' ? 'advantage' : ''}">
+                                ${team2Inj.significant} out, ${team2Inj.questionable} questionable
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                if (team1Inj.players.length > 0 || team2Inj.players.length > 0) {
+                    html += `<div style="margin-top: 12px;">`;
+                    if (team1Inj.players.length > 0) {
+                        html += `
+                            <div style="margin-bottom: 8px;">
+                                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">${team1Name}:</div>
+                                <ul class="injury-list">
+                                    ${team1Inj.players.slice(0, 3).map(p => `<li class="injury-item">${p}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                    if (team2Inj.players.length > 0) {
+                        html += `
+                            <div>
+                                <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">${team2Name}:</div>
+                                <ul class="injury-list">
+                                    ${team2Inj.players.slice(0, 3).map(p => `<li class="injury-item">${p}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+                    html += `</div>`;
+                }
+                
+                html += `</div>`;
+            }
+            
+            // Score Breakdown Details
+            if (scoreBreakdown.team1_base_score !== undefined) {
+                html += `
+                    <div class="factor-group">
+                        <div class="factor-group-title">🎯 Score Calculation</div>
+                        <div class="score-breakdown-detail">
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team1Name} Base Score</div>
+                                <div class="score-detail-value">${scoreBreakdown.team1_base_score.toFixed(3)}</div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team2Name} Base Score</div>
+                                <div class="score-detail-value">${scoreBreakdown.team2_base_score.toFixed(3)}</div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team1Name} Sentiment</div>
+                                <div class="score-detail-value ${scoreBreakdown.team1_sentiment_adjustment >= 0 ? 'positive' : 'negative'}">
+                                    ${scoreBreakdown.team1_sentiment_adjustment >= 0 ? '+' : ''}${scoreBreakdown.team1_sentiment_adjustment.toFixed(3)}
+                                </div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team2Name} Sentiment</div>
+                                <div class="score-detail-value ${scoreBreakdown.team2_sentiment_adjustment >= 0 ? 'positive' : 'negative'}">
+                                    ${scoreBreakdown.team2_sentiment_adjustment >= 0 ? '+' : ''}${scoreBreakdown.team2_sentiment_adjustment.toFixed(3)}
+                                </div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team1Name} Injury Penalty</div>
+                                <div class="score-detail-value ${scoreBreakdown.team1_injury_adjustment < 0 ? 'negative' : ''}">
+                                    ${scoreBreakdown.team1_injury_adjustment.toFixed(3)}
+                                </div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team2Name} Injury Penalty</div>
+                                <div class="score-detail-value ${scoreBreakdown.team2_injury_adjustment < 0 ? 'negative' : ''}">
+                                    ${scoreBreakdown.team2_injury_adjustment.toFixed(3)}
+                                </div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team1Name} Final Score</div>
+                                <div class="score-detail-value">${scoreBreakdown.team1_final_score.toFixed(3)}</div>
+                            </div>
+                            <div class="score-detail-item">
+                                <div class="score-detail-label">${team2Name} Final Score</div>
+                                <div class="score-detail-value">${scoreBreakdown.team2_final_score.toFixed(3)}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            return html;
+        }
+
         function displayResults(data, team1Name, team2Name) {
             const predictedWinner = data.matchup.predicted_winner;
             const isTeam1Winner = predictedWinner.toLowerCase() === team1Name.toLowerCase();
@@ -2683,6 +3084,7 @@
                         </div>
                     </div>
                 </div>
+                ${data.matchup.prediction_factors ? renderPredictionFactors(data.matchup.prediction_factors, team1Name, team2Name) : ''}
             `;
 
             // Team Cards

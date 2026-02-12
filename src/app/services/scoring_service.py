@@ -256,6 +256,104 @@ class ScoringService:
         else:
             return "Low confidence"
     
+    def _extract_stat_comparison(self, team1_stats: Dict[str, Any], team2_stats: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract stat comparisons for display"""
+        stats1 = team1_stats if team1_stats and team1_stats.get('data_source') != 'placeholder' else {}
+        stats2 = team2_stats if team2_stats and team2_stats.get('data_source') != 'placeholder' else {}
+        
+        return {
+            'shooting_pct': {
+                'team1': stats1.get('shooting_pct', 0.45),
+                'team2': stats2.get('shooting_pct', 0.45),
+                'advantage': 'team1' if stats1.get('shooting_pct', 0.45) > stats2.get('shooting_pct', 0.45) else 'team2'
+            },
+            'rebounding_avg': {
+                'team1': stats1.get('rebounding_avg', 42.0),
+                'team2': stats2.get('rebounding_avg', 42.0),
+                'advantage': 'team1' if stats1.get('rebounding_avg', 42.0) > stats2.get('rebounding_avg', 42.0) else 'team2'
+            },
+            'turnovers_avg': {
+                'team1': stats1.get('turnovers_avg', 14.0),
+                'team2': stats2.get('turnovers_avg', 14.0),
+                'advantage': 'team1' if stats1.get('turnovers_avg', 14.0) < stats2.get('turnovers_avg', 14.0) else 'team2'  # Lower is better
+            },
+            'net_rating_proxy': {
+                'team1': stats1.get('net_rating_proxy', 0.0),
+                'team2': stats2.get('net_rating_proxy', 0.0),
+                'advantage': 'team1' if stats1.get('net_rating_proxy', 0.0) > stats2.get('net_rating_proxy', 0.0) else 'team2'
+            }
+        }
+    
+    def _extract_sentiment_factors(self, team1_sentiment: str, team2_sentiment: str) -> Dict[str, Any]:
+        """Extract sentiment factors for display"""
+        def parse_sentiment(sentiment_str: str) -> Dict[str, Any]:
+            if not sentiment_str or 'unavailable' in sentiment_str.lower():
+                return {'score': 0.0, 'label': 'Neutral', 'positive_pct': 0, 'negative_pct': 0}
+            
+            # Try to extract compound score from sentiment string
+            import re
+            score_match = re.search(r'compound score[:\s]+([-]?\d+\.?\d*)', sentiment_str.lower())
+            pos_match = re.search(r'(\d+)% positive', sentiment_str.lower())
+            neg_match = re.search(r'(\d+)% negative', sentiment_str.lower())
+            
+            score = float(score_match.group(1)) if score_match else 0.0
+            pos_pct = int(pos_match.group(1)) if pos_match else 0
+            neg_pct = int(neg_match.group(1)) if neg_match else 0
+            
+            if score > 0.3:
+                label = 'Very Positive'
+            elif score > 0.1:
+                label = 'Positive'
+            elif score < -0.3:
+                label = 'Very Negative'
+            elif score < -0.1:
+                label = 'Negative'
+            else:
+                label = 'Neutral'
+            
+            return {'score': score, 'label': label, 'positive_pct': pos_pct, 'negative_pct': neg_pct}
+        
+        team1_sent = parse_sentiment(team1_sentiment)
+        team2_sent = parse_sentiment(team2_sentiment)
+        
+        return {
+            'team1': team1_sent,
+            'team2': team2_sent,
+            'advantage': 'team1' if team1_sent['score'] > team2_sent['score'] else 'team2'
+        }
+    
+    def _extract_injury_factors(self, team1_injuries: Optional[list], team2_injuries: Optional[list]) -> Dict[str, Any]:
+        """Extract injury factors for display"""
+        def parse_injuries(injuries: Optional[list]) -> Dict[str, Any]:
+            if not injuries:
+                return {'count': 0, 'significant': 0, 'players': []}
+            
+            significant = []
+            questionable = []
+            
+            for injury in injuries:
+                injury_lower = str(injury).lower()
+                if any(word in injury_lower for word in ['out', 'injured', 'surgery', 'fracture', 'torn']):
+                    significant.append(str(injury))
+                elif any(word in injury_lower for word in ['questionable', 'doubtful', 'probable']):
+                    questionable.append(str(injury))
+            
+            return {
+                'count': len(injuries),
+                'significant': len(significant),
+                'questionable': len(questionable),
+                'players': significant + questionable
+            }
+        
+        team1_inj = parse_injuries(team1_injuries)
+        team2_inj = parse_injuries(team2_injuries)
+        
+        return {
+            'team1': team1_inj,
+            'team2': team2_inj,
+            'advantage': 'team1' if team1_inj['significant'] < team2_inj['significant'] else 'team2'
+        }
+
     def calculate_matchup(
         self,
         team1_name: str,
@@ -281,7 +379,7 @@ class ScoringService:
             team2_injuries: Injuries for team 2
             
         Returns:
-            Dictionary with predicted_winner, win_probability, score_breakdown, confidence_label
+            Dictionary with predicted_winner, win_probability, score_breakdown, confidence_label, and prediction_factors
         """
         # Calculate sentiment tilts
         team1_sentiment_tilt = self.calculate_sentiment_tilt(team1_sentiment)
@@ -292,6 +390,8 @@ class ScoringService:
         team2_injuries_penalty = self.calculate_injuries_penalty(team2_injuries)
         
         # Calculate team scores
+        team1_stats_score = self.calculate_stats_score(team1_stats)
+        team2_stats_score = self.calculate_stats_score(team2_stats)
         team1_score = self.calculate_team_score(team1_stats, team1_sentiment_tilt, team1_injuries_penalty)
         team2_score = self.calculate_team_score(team2_stats, team2_sentiment_tilt, team2_injuries_penalty)
         
@@ -305,12 +405,35 @@ class ScoringService:
         score_breakdown = self.generate_score_breakdown(team1_score, team2_score, team1_name, team2_name)
         confidence_label = self.generate_confidence_label(win_probability)
         
+        # Extract detailed factors
+        stat_comparison = self._extract_stat_comparison(team1_stats, team2_stats)
+        sentiment_factors = self._extract_sentiment_factors(team1_sentiment, team2_sentiment)
+        injury_factors = self._extract_injury_factors(team1_injuries, team2_injuries)
+        
+        # Build prediction factors
+        prediction_factors = {
+            'stats': stat_comparison,
+            'sentiment': sentiment_factors,
+            'injuries': injury_factors,
+            'score_breakdown': {
+                'team1_base_score': round(team1_stats_score, 3),
+                'team2_base_score': round(team2_stats_score, 3),
+                'team1_sentiment_adjustment': round(team1_sentiment_tilt, 3),
+                'team2_sentiment_adjustment': round(team2_sentiment_tilt, 3),
+                'team1_injury_adjustment': round(team1_injuries_penalty, 3),
+                'team2_injury_adjustment': round(team2_injuries_penalty, 3),
+                'team1_final_score': round(team1_score, 3),
+                'team2_final_score': round(team2_score, 3)
+            }
+        }
+        
         return {
             'predicted_winner': predicted_winner,
             'win_probability': round(win_probability, 3),
             'score_breakdown': score_breakdown,
             'confidence_label': confidence_label,
             'team1_score': round(team1_score, 3),
-            'team2_score': round(team2_score, 3)
+            'team2_score': round(team2_score, 3),
+            'prediction_factors': prediction_factors
         }
 
