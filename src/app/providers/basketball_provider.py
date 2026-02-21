@@ -7,6 +7,30 @@ from nba_api.stats.library.parameters import SeasonAll
 
 logger = logging.getLogger(__name__)
 
+# Browser-like headers required for stats.nba.com to accept requests from
+# cloud/datacenter IPs (e.g. Render, Heroku). Without these, the NBA API
+# returns a timeout or connection refused from non-residential IPs.
+NBA_API_HEADERS = {
+    "Host": "stats.nba.com",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "application/json, text/plain, */*",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "x-nba-stats-origin": "stats",
+    "x-nba-stats-token": "true",
+    "Referer": "https://www.nba.com/",
+    "Origin": "https://www.nba.com",
+    "Connection": "keep-alive",
+    "Pragma": "no-cache",
+    "Cache-Control": "no-cache",
+}
+
+NBA_API_TIMEOUT = 60  # seconds
+
 # Team name aliases for ESPN -> NBA API mapping
 TEAM_NAME_ALIASES = {
     "la clippers": "los angeles clippers",
@@ -149,7 +173,9 @@ class BasketballProvider:
                 
                 gamelog = teamgamelog.TeamGameLog(
                     team_id=team_id,
-                    season=season
+                    season=season,
+                    headers=NBA_API_HEADERS,
+                    timeout=NBA_API_TIMEOUT,
                 )
                 # Get the game log dataframe
                 games_df = gamelog.get_data_frames()[0]
@@ -192,7 +218,9 @@ class BasketballProvider:
                         
                         prev_gamelog = teamgamelog.TeamGameLog(
                             team_id=team_id,
-                            season=prev_season
+                            season=prev_season,
+                            headers=NBA_API_HEADERS,
+                            timeout=NBA_API_TIMEOUT,
                         )
                         prev_games_df = prev_gamelog.get_data_frames()[0]
                         
@@ -233,7 +261,9 @@ class BasketballProvider:
                         time.sleep(0.6)
                         dashboard = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
                             team_id=team_id,
-                            season=dash_season
+                            season=dash_season,
+                            headers=NBA_API_HEADERS,
+                            timeout=NBA_API_TIMEOUT,
                         )
                         dashboard_df = dashboard.get_data_frames()[0]
                         
