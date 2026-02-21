@@ -4,6 +4,7 @@ from typing import Dict, Any, Optional
 from nba_api.stats.endpoints import teamgamelog, teamdashboardbygeneralsplits
 from nba_api.stats.static import teams
 from nba_api.stats.library.parameters import SeasonAll
+from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +30,9 @@ NBA_API_HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-NBA_API_TIMEOUT = 60  # seconds
+NBA_API_TIMEOUT = 90  # seconds
+NBA_API_MAX_RETRIES = 3
+NBA_API_RETRY_BACKOFF = 5  # seconds base delay between retries
 
 # Team name aliases for ESPN -> NBA API mapping
 TEAM_NAME_ALIASES = {
@@ -119,6 +122,70 @@ class BasketballProvider:
             self.logger.error("Error fetching team ID for '%s': %s", team_name, e)
             return None
     
+    def _fetch_team_gamelog(self, team_id: int, season: str):
+        """
+        Fetch team game log with retry logic for transient network errors.
+        
+        Args:
+            team_id: NBA team ID
+            season: Season string (e.g., '2025-26')
+            
+        Returns:
+            TeamGameLog object or raises the last exception
+        """
+        last_exc = None
+        for attempt in range(1, NBA_API_MAX_RETRIES + 1):
+            try:
+                time.sleep(0.6)
+                return teamgamelog.TeamGameLog(
+                    team_id=team_id,
+                    season=season,
+                    headers=NBA_API_HEADERS,
+                    timeout=NBA_API_TIMEOUT,
+                )
+            except (ReadTimeout, RequestsConnectionError) as e:
+                last_exc = e
+                wait = NBA_API_RETRY_BACKOFF * attempt
+                self.logger.warning(
+                    "Transient network error for team_id=%s season=%s (attempt %d/%d): %s. Retrying in %ds...",
+                    team_id, season, attempt, NBA_API_MAX_RETRIES, e, wait
+                )
+                if attempt < NBA_API_MAX_RETRIES:
+                    time.sleep(wait)
+        raise last_exc
+
+    def _fetch_team_dashboard(self, team_id: int, season: str):
+        """
+        Fetch team dashboard stats with retry logic for transient network errors.
+
+        Args:
+            team_id: NBA team ID
+            season: Season string (e.g., '2025-26')
+
+        Returns:
+            TeamDashboardByGeneralSplits object or raises the last exception
+        """
+        last_exc = None
+        for attempt in range(1, NBA_API_MAX_RETRIES + 1):
+            try:
+                time.sleep(0.6)
+                return teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
+                    team_id=team_id,
+                    season=season,
+                    headers=NBA_API_HEADERS,
+                    timeout=NBA_API_TIMEOUT,
+                )
+            except (ReadTimeout, RequestsConnectionError) as e:
+                last_exc = e
+                wait = NBA_API_RETRY_BACKOFF * attempt
+                self.logger.warning(
+                    "Transient network error for team_id=%s season=%s (attempt %d/%d): %s. Retrying in %ds...",
+                    team_id, season, attempt, NBA_API_MAX_RETRIES, e, wait
+                )
+                if attempt < NBA_API_MAX_RETRIES:
+                    time.sleep(wait)
+        raise last_exc
+
     def get_placeholder_stats(self, team_name: str) -> Dict[str, Any]:
         """
         Return placeholder stats when API fetch fails
@@ -168,15 +235,7 @@ class BasketballProvider:
             self.logger.debug("Fetching stats for team_id=%s, season=%s", team_id, season)
             
             try:
-                # Add small delay to avoid rate limiting
-                time.sleep(0.6)  # NBA API recommends delays between requests
-                
-                gamelog = teamgamelog.TeamGameLog(
-                    team_id=team_id,
-                    season=season,
-                    headers=NBA_API_HEADERS,
-                    timeout=NBA_API_TIMEOUT,
-                )
+                gamelog = self._fetch_team_gamelog(team_id, season)
                 # Get the game log dataframe
                 games_df = gamelog.get_data_frames()[0]
                 
@@ -196,6 +255,9 @@ class BasketballProvider:
                         self.logger.debug("Could not parse API response dict: %s", dict_error)
                 
                 self.logger.debug("API call successful for %s. DataFrame shape: %s, columns: %s", season, games_df.shape, list(games_df.columns) if not games_df.empty else 'empty')
+            except (ReadTimeout, RequestsConnectionError) as api_error:
+                self.logger.error("Network timeout fetching season %s for team '%s' after %d retries: %s", season, team_name, NBA_API_MAX_RETRIES, api_error)
+                games_df = None
             except (ValueError, KeyError, AttributeError) as api_error:
                 self.logger.error("API error fetching current season %s for team '%s' (team_id=%s): %s", season, team_name, team_id, api_error, exc_info=True)
                 games_df = None
@@ -213,15 +275,7 @@ class BasketballProvider:
                 for prev_season in seasons_to_try:
                     self.logger.debug("Trying season: %s", prev_season)
                     try:
-                        # Add delay between API requests
-                        time.sleep(0.6)
-                        
-                        prev_gamelog = teamgamelog.TeamGameLog(
-                            team_id=team_id,
-                            season=prev_season,
-                            headers=NBA_API_HEADERS,
-                            timeout=NBA_API_TIMEOUT,
-                        )
+                        prev_gamelog = self._fetch_team_gamelog(team_id, prev_season)
                         prev_games_df = prev_gamelog.get_data_frames()[0]
                         
                         if prev_games_df is not None and not prev_games_df.empty:
@@ -231,6 +285,9 @@ class BasketballProvider:
                             break
                         else:
                             self.logger.debug("No games in season %s for team '%s'", prev_season, team_name)
+                    except (ReadTimeout, RequestsConnectionError) as e:
+                        self.logger.warning("Network timeout fetching season %s for team '%s' after retries: %s", prev_season, team_name, e)
+                        continue
                     except (ValueError, KeyError, AttributeError) as e:
                         self.logger.debug("Error fetching season %s for team '%s': %s", prev_season, team_name, e)
                         continue
@@ -258,13 +315,7 @@ class BasketballProvider:
                 
                 for dash_season in seasons_to_try_dashboard:
                     try:
-                        time.sleep(0.6)
-                        dashboard = teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
-                            team_id=team_id,
-                            season=dash_season,
-                            headers=NBA_API_HEADERS,
-                            timeout=NBA_API_TIMEOUT,
-                        )
+                        dashboard = self._fetch_team_dashboard(team_id, dash_season)
                         dashboard_df = dashboard.get_data_frames()[0]
                         
                         if dashboard_df is not None and not dashboard_df.empty:
@@ -274,6 +325,9 @@ class BasketballProvider:
                             season = dash_season
                             games_df = dashboard_df  # Use dashboard data
                             break
+                    except (ReadTimeout, RequestsConnectionError) as e:
+                        self.logger.warning("Network timeout fetching dashboard for season %s after retries: %s", dash_season, e)
+                        continue
                     except (ValueError, KeyError, AttributeError) as e:
                         self.logger.debug("Dashboard endpoint error for season %s: %s", dash_season, e)
                         continue
