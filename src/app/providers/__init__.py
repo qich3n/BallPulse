@@ -11,11 +11,14 @@ Future providers:
 """
 
 from .basketball_provider import BasketballProvider
+from .espn_provider import ESPNProvider
 
-# Future imports (commented until implemented):
-# from .espn_provider import ESPNProvider
+# Shared singletons — import these in routes instead of creating new instances,
+# so the ESPN team-list and stats caches persist across all requests.
+basketball_provider = BasketballProvider()
 
 __all__ = [
     'BasketballProvider',
-    # 'ESPNProvider',  # Future implementation
+    'ESPNProvider',
+    'basketball_provider',
 ]

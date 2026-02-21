@@ -86,6 +86,7 @@ class ESPNProvider:
         self.timeout = timeout
         self._team_cache: Dict[str, Dict[str, Any]] = {}
         self._teams_list: Optional[List[Dict[str, Any]]] = None
+        self._stats_cache: Dict[str, Optional[Dict[str, Any]]] = {}  # cache for team statistics
         
         self.logger.info("ESPNProvider initialized for %s/%s", sport.value, league.value)
     
@@ -296,15 +297,19 @@ class ESPNProvider:
         cache_key = team_identifier.lower()
         if cache_key in self._team_cache:
             return self._team_cache[cache_key]
-        
-        # Try direct fetch with identifier
-        url = self._build_url(f"teams/{team_identifier}")
-        data = self._fetch_sync(url)
-        
-        if data and "team" in data:
-            team_data = self._parse_team_response(data)
-            self._team_cache[cache_key] = team_data
-            return team_data
+
+        # Only attempt a direct URL fetch for numeric IDs or short abbreviations
+        # (e.g. "LAL", "BOS", "25").  Full team names like "Phoenix Suns" always
+        # return a 400 from ESPN, so skip the wasted request entirely.
+        _id = team_identifier.strip()
+        _looks_like_id_or_abbrev = _id.isdigit() or (len(_id) <= 5 and " " not in _id)
+        if _looks_like_id_or_abbrev:
+            url = self._build_url(f"teams/{_id}")
+            data = self._fetch_sync(url)
+            if data and "team" in data:
+                team_data = self._parse_team_response(data)
+                self._team_cache[cache_key] = team_data
+                return team_data
         
         # Search in all teams
         all_teams = self.get_all_teams()
@@ -388,6 +393,11 @@ class ESPNProvider:
               - avgPlusMinus     (per game, can be negative)
               - wins, losses     (season record)
         """
+        # Return cached stats if available (avoids repeated HTTP calls within same server lifetime)
+        stats_cache_key = team_identifier.lower()
+        if stats_cache_key in self._stats_cache:
+            return self._stats_cache[stats_cache_key]
+
         team = self.get_team(team_identifier)
         if not team:
             self.logger.warning("get_team_statistics: team not found for '%s'", team_identifier)
@@ -437,6 +447,7 @@ class ESPNProvider:
         flat.setdefault("winPercent", float(record.get("win_percent", 0)))
 
         self.logger.debug("get_team_statistics: fetched %d stat fields for '%s'", len(flat), team_identifier)
+        self._stats_cache[stats_cache_key] = flat
         return flat
 
     def get_team_stats_summary(self, team_identifier: str) -> Optional[Dict[str, Any]]:

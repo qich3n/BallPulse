@@ -2,15 +2,13 @@ import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
-from ..providers.basketball_provider import BasketballProvider
+from ..providers import basketball_provider
 from ..services.rate_limiter import limiter, RATE_LIMITS
 from nba_api.stats.static import teams
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/teams", tags=["teams"])
-
-basketball_provider = BasketballProvider()
 
 
 class TeamInfo(BaseModel):

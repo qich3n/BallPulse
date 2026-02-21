@@ -58,6 +58,7 @@ class BasketballProvider:
         """Initialize the basketball provider"""
         self.logger = logging.getLogger(__name__)
         self._team_cache: Dict[str, Optional[int]] = {}
+        self._espn_provider = None  # cached ESPNProvider instance (avoids repeated get_all_teams calls)
     
     def _normalize_team_name(self, team_name: str) -> str:
         """Normalize team name using aliases"""
@@ -228,7 +229,14 @@ class BasketballProvider:
         # -------------------------------------------------------------------
         try:
             from .espn_provider import ESPNProvider, Sport, League
-            espn = ESPNProvider(sport=Sport.BASKETBALL, league=League.NBA, timeout=10.0)
+            # Reuse a single ESPNProvider instance so _team_cache and
+            # _teams_list persist across repeated calls (avoids refetching
+            # the full team list for every team).
+            if self._espn_provider is None:
+                self._espn_provider = ESPNProvider(
+                    sport=Sport.BASKETBALL, league=League.NBA, timeout=10.0
+                )
+            espn = self._espn_provider
             espn_stats = espn.get_team_stats_summary(team_name)
             if espn_stats:
                 self.logger.info("ESPN stats fetched successfully for '%s'", team_name)
@@ -273,6 +281,13 @@ class BasketballProvider:
                             games_df = prev_df
                             season = prev_season
                             break
+                    except (ReadTimeout, RequestsConnectionError) as timeout_err:
+                        # stats.nba.com is blocked on cloud; bail out immediately
+                        self.logger.warning(
+                            "NBA API timeout on prev season '%s' – returning placeholder: %s",
+                            prev_season, timeout_err
+                        )
+                        return self.get_placeholder_stats(team_name)
                     except Exception:
                         continue
 

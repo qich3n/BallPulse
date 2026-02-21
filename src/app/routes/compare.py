@@ -10,7 +10,7 @@ from ..services.async_reddit_service import AsyncRedditService
 from ..services.injury_service import InjuryService
 from ..services.history_service import HistoryService
 from ..services.rate_limiter import limiter, RATE_LIMITS
-from ..providers.basketball_provider import BasketballProvider
+from ..providers import basketball_provider
 from ..utils.team_normalizer import TeamNormalizer
 
 logger = logging.getLogger(__name__)
@@ -24,7 +24,6 @@ proscons_service = ProsConsService()
 sentiment_service = SentimentService()
 async_reddit_service = AsyncRedditService(cache_service=cache_service)
 injury_service = InjuryService()
-basketball_provider = BasketballProvider()
 history_service = HistoryService()
 
 
