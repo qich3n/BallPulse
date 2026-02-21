@@ -369,8 +369,133 @@ class ESPNProvider:
             "franchise": team.get("franchise", {})
         }
 
+    # ==================== TEAM STATISTICS ====================
+
+    def get_team_statistics(self, team_identifier: str) -> Optional[Dict[str, Any]]:
+        """
+        Get per-game statistics for a specific team from ESPN's statistics endpoint.
+        This endpoint works reliably from cloud/datacenter IPs unlike stats.nba.com.
+
+        Args:
+            team_identifier: Team name, abbreviation, or ESPN ID
+
+        Returns:
+            Flat dict of stat name -> float, or None if unavailable.
+            Guaranteed keys (fallback to sensible defaults if missing):
+              - fieldGoalPct     (0.0–1.0 decimal)
+              - avgRebounds      (per game)
+              - avgTurnovers     (per game)
+              - avgPlusMinus     (per game, can be negative)
+              - wins, losses     (season record)
+        """
+        team = self.get_team(team_identifier)
+        if not team:
+            self.logger.warning("get_team_statistics: team not found for '%s'", team_identifier)
+            return None
+
+        team_id = team.get("id")
+        url = self._build_url(f"teams/{team_id}/statistics")
+        data = self._fetch_sync(url)
+
+        if not data:
+            self.logger.warning("get_team_statistics: no data returned for team_id=%s", team_id)
+            return None
+
+        # ESPN returns stats in two possible shapes:
+        #   1. data["results"]["stats"]["categories"][*]["stats"][*]{name, value}
+        #   2. data["splits"]["categories"][*]["stats"][*]{name, value}
+        flat: Dict[str, float] = {}
+
+        def _extract(categories_list: List) -> None:
+            for cat in categories_list:
+                for stat in cat.get("stats", []):
+                    name = stat.get("name") or stat.get("shortDisplayName")
+                    value = stat.get("value")
+                    if name and value is not None:
+                        try:
+                            flat[name] = float(value)
+                        except (TypeError, ValueError):
+                            pass
+
+        results = data.get("results", {})
+        if results:
+            cats = results.get("stats", {}).get("categories", [])
+            _extract(cats)
+
+        splits = data.get("splits", {})
+        if splits:
+            _extract(splits.get("categories", []))
+
+        if not flat:
+            self.logger.warning("get_team_statistics: empty stats for team_id=%s", team_id)
+            return None
+
+        # Inject season record from get_team() since statistics endpoint may omit it
+        record = team.get("record", {})
+        flat.setdefault("wins", float(record.get("wins", 0)))
+        flat.setdefault("losses", float(record.get("losses", 0)))
+        flat.setdefault("winPercent", float(record.get("win_percent", 0)))
+
+        self.logger.debug("get_team_statistics: fetched %d stat fields for '%s'", len(flat), team_identifier)
+        return flat
+
+    def get_team_stats_summary(self, team_identifier: str) -> Optional[Dict[str, Any]]:
+        """
+        Return a normalised stats summary dict compatible with BasketballProvider's output.
+        Uses ESPN statistics endpoint (works on Render/cloud IPs).
+
+        Returns:
+            Dict with keys: shooting_pct, rebounding_avg, turnovers_avg,
+            net_rating_proxy, team_name, data_source
+            or None if stats cannot be fetched.
+        """
+        raw = self.get_team_statistics(team_identifier)
+        if not raw:
+            return None
+
+        # ESPN field-goal percentage may be on a 0-100 scale or 0-1 scale
+        fg_pct = (
+            raw.get("avgFieldGoalPct")
+            or raw.get("fieldGoalPct")
+            or raw.get("shootingEfficiency")
+            or 0.450
+        )
+        if fg_pct and fg_pct > 1.0:
+            fg_pct = fg_pct / 100.0
+
+        rebounds = (
+            raw.get("avgRebounds")
+            or raw.get("reboundsPerGame")
+            or raw.get("rebounds")
+            or 42.0
+        )
+
+        turnovers = (
+            raw.get("avgTurnovers")
+            or raw.get("turnoversPerGame")
+            or raw.get("turnovers")
+            or 14.0
+        )
+
+        plus_minus = (
+            raw.get("avgPlusMinus")
+            or raw.get("plusMinusRating")
+            or raw.get("avgPointDifferential")
+            or raw.get("pointDifferential")
+            or 0.0
+        )
+
+        return {
+            "shooting_pct": round(float(fg_pct), 3),
+            "rebounding_avg": round(float(rebounds), 1),
+            "turnovers_avg": round(float(turnovers), 1),
+            "net_rating_proxy": round(float(plus_minus), 1),
+            "team_name": team_identifier,
+            "data_source": "espn_api",
+        }
+
     # ==================== NEWS ====================
-    
+
     def get_news(self, limit: int = 25) -> List[Dict[str, Any]]:
         """
         Get latest news articles

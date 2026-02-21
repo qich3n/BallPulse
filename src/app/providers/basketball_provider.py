@@ -30,9 +30,12 @@ NBA_API_HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-NBA_API_TIMEOUT = 90  # seconds
-NBA_API_MAX_RETRIES = 3
-NBA_API_RETRY_BACKOFF = 5  # seconds base delay between retries
+# stats.nba.com blocks cloud/datacenter IPs (Render, Heroku, AWS, etc.).
+# Keep timeout short so requests fail fast and fall back to placeholder data
+# instead of hanging the server for several minutes.
+NBA_API_TIMEOUT = 8  # seconds — fail fast on Render
+NBA_API_MAX_RETRIES = 1  # no retries; cloud IPs are blocked, not flaky
+NBA_API_RETRY_BACKOFF = 1  # seconds base delay between retries
 
 # Team name aliases for ESPN -> NBA API mapping
 TEAM_NAME_ALIASES = {
@@ -208,200 +211,103 @@ class BasketballProvider:
     
     def get_team_stats_summary(self, team_name: str) -> Dict[str, Any]:
         """
-        Get normalized stats summary for a team (last 10 games)
-        
-        Args:
-            team_name: Name of the team
-            
+        Get normalized stats summary for a team.
+
+        Strategy (in order):
+          1. ESPN – works from any IP including Render/cloud (preferred).
+          2. NBA API – works locally but stats.nba.com blocks cloud IPs,
+             so this is kept as a secondary fallback with a short timeout.
+          3. Placeholder – safe defaults so the app never crashes.
+
         Returns:
-            Dictionary with normalized stats:
-            - last_10_games: Number of games (up to 10)
-            - shooting_pct: Average field goal percentage
-            - rebounding_avg: Average rebounds per game
-            - turnovers_avg: Average turnovers per game
-            - net_rating_proxy: Net rating proxy (offensive rating - defensive rating)
-            - team_name: Team name
-            - data_source: "nba_api" or "placeholder"
+            Dict with keys: last_10_games, shooting_pct, rebounding_avg,
+            turnovers_avg, net_rating_proxy, team_name, data_source
         """
-        team_id = self._get_team_id(team_name)
-        
-        if not team_id:
-            self.logger.warning("Team ID not found for '%s', using placeholder data", team_name)
-            return self.get_placeholder_stats(team_name)
-        
+        # -------------------------------------------------------------------
+        # 1. Try ESPN (primary – works on Render)
+        # -------------------------------------------------------------------
         try:
-            # Try current season first
+            from .espn_provider import ESPNProvider, Sport, League
+            espn = ESPNProvider(sport=Sport.BASKETBALL, league=League.NBA, timeout=10.0)
+            espn_stats = espn.get_team_stats_summary(team_name)
+            if espn_stats:
+                self.logger.info("ESPN stats fetched successfully for '%s'", team_name)
+                espn_stats["last_10_games"] = 10  # ESPN gives season averages, not last-10
+                return espn_stats
+            else:
+                self.logger.warning("ESPN returned no stats for '%s', trying NBA API", team_name)
+        except Exception as e:
+            self.logger.warning("ESPN stats fetch failed for '%s': %s – trying NBA API", team_name, e)
+
+        # -------------------------------------------------------------------
+        # 2. NBA API fallback (works locally; fast-fails on Render)
+        # -------------------------------------------------------------------
+        team_id = self._get_team_id(team_name)
+        if not team_id:
+            self.logger.warning("Team ID not found for '%s', using placeholder", team_name)
+            return self.get_placeholder_stats(team_name)
+
+        try:
             season = SeasonAll.current_season
-            self.logger.debug("Fetching stats for team_id=%s, season=%s", team_id, season)
-            
+            self.logger.debug("Fetching NBA API stats for team_id=%s, season=%s", team_id, season)
             try:
                 gamelog = self._fetch_team_gamelog(team_id, season)
-                # Get the game log dataframe
                 games_df = gamelog.get_data_frames()[0]
-                
-                # Log response details for debugging
-                if hasattr(gamelog, 'get_dict'):
-                    try:
-                        response_dict = gamelog.get_dict()
-                        result_sets = response_dict.get('resultSets', [])
-                        if result_sets:
-                            row_set = result_sets[0].get('rowSet', [])
-                            self.logger.info("API response: %d rows returned for season %s, team '%s'", len(row_set), season, team_name)
-                            if len(row_set) == 0:
-                                self.logger.warning("API returned empty rowSet for season %s. This may indicate the season hasn't started, data isn't available yet, or the API format changed.", season)
-                        else:
-                            self.logger.warning("API returned empty resultSets for season %s", season)
-                    except (KeyError, TypeError, AttributeError) as dict_error:
-                        self.logger.debug("Could not parse API response dict: %s", dict_error)
-                
-                self.logger.debug("API call successful for %s. DataFrame shape: %s, columns: %s", season, games_df.shape, list(games_df.columns) if not games_df.empty else 'empty')
             except (ReadTimeout, RequestsConnectionError) as api_error:
-                self.logger.error("Network timeout fetching season %s for team '%s' after %d retries: %s", season, team_name, NBA_API_MAX_RETRIES, api_error)
+                self.logger.warning(
+                    "NBA API timeout for '%s' (likely running on cloud): %s. Using placeholder.",
+                    team_name, api_error
+                )
+                return self.get_placeholder_stats(team_name)
+            except (ValueError, KeyError, AttributeError):
                 games_df = None
-            except (ValueError, KeyError, AttributeError) as api_error:
-                self.logger.error("API error fetching current season %s for team '%s' (team_id=%s): %s", season, team_name, team_id, api_error, exc_info=True)
-                games_df = None
-            
-            # If no games in current season, try previous seasons
+
+            # Try previous season if current is empty
             if games_df is None or games_df.empty:
-                self.logger.info("No games found in %s for team '%s' (team_id=%s), trying previous seasons", season, team_name, team_id)
-                # Try multiple previous seasons (last 2 seasons should have data)
-                year = int(season.split('-')[0])
-                seasons_to_try = [
-                    f"{year-1}-{str(year)[2:]}",  # Previous season
-                    f"{year-2}-{str(year-1)[2:]}"  # Season before that
-                ]
-                
-                for prev_season in seasons_to_try:
-                    self.logger.debug("Trying season: %s", prev_season)
+                year = int(season.split("-")[0])
+                for prev_season in [f"{year-1}-{str(year)[2:]}", f"{year-2}-{str(year-1)[2:]}"]:
                     try:
-                        prev_gamelog = self._fetch_team_gamelog(team_id, prev_season)
-                        prev_games_df = prev_gamelog.get_data_frames()[0]
-                        
-                        if prev_games_df is not None and not prev_games_df.empty:
-                            self.logger.info("Found %d games in season %s for team '%s'", len(prev_games_df), prev_season, team_name)
-                            games_df = prev_games_df
+                        prev_gl = self._fetch_team_gamelog(team_id, prev_season)
+                        prev_df = prev_gl.get_data_frames()[0]
+                        if prev_df is not None and not prev_df.empty:
+                            games_df = prev_df
                             season = prev_season
                             break
-                        else:
-                            self.logger.debug("No games in season %s for team '%s'", prev_season, team_name)
-                    except (ReadTimeout, RequestsConnectionError) as e:
-                        self.logger.warning("Network timeout fetching season %s for team '%s' after retries: %s", prev_season, team_name, e)
+                    except Exception:
                         continue
-                    except (ValueError, KeyError, AttributeError) as e:
-                        self.logger.debug("Error fetching season %s for team '%s': %s", prev_season, team_name, e)
-                        continue
-                
-                # If still no data, create empty dataframe
-                if games_df is None or games_df.empty:
-                    import pandas as pd
-                    games_df = pd.DataFrame()
-            
-            # Get last 10 games (they're already sorted by date descending)
-            recent_games = games_df.head(10) if games_df is not None and not games_df.empty else games_df
-            
-            # If TeamGameLog fails, try TeamDashboardByGeneralSplits as fallback
+
             if games_df is None or games_df.empty:
-                self.logger.info("TeamGameLog returned no data, trying TeamDashboardByGeneralSplits as fallback for team '%s'", team_name)
-                games_df = None
-                season = SeasonAll.current_season
-                
-                # Try dashboard endpoint (this endpoint seems to work better)
-                seasons_to_try_dashboard = [
-                    season,
-                    f"{int(season.split('-')[0])-1}-{str(int(season.split('-')[0]))[2:]}",
-                    f"{int(season.split('-')[0])-2}-{str(int(season.split('-')[0])-1)[2:]}",
-                ]
-                
-                for dash_season in seasons_to_try_dashboard:
-                    try:
-                        dashboard = self._fetch_team_dashboard(team_id, dash_season)
-                        dashboard_df = dashboard.get_data_frames()[0]
-                        
-                        if dashboard_df is not None and not dashboard_df.empty:
-                            self.logger.info("Successfully fetched dashboard stats for season %s", dash_season)
-                            # Dashboard gives season averages, so we'll use those
-                            # Convert to match our expected format by creating a synthetic games_df structure
-                            season = dash_season
-                            games_df = dashboard_df  # Use dashboard data
-                            break
-                    except (ReadTimeout, RequestsConnectionError) as e:
-                        self.logger.warning("Network timeout fetching dashboard for season %s after retries: %s", dash_season, e)
-                        continue
-                    except (ValueError, KeyError, AttributeError) as e:
-                        self.logger.debug("Dashboard endpoint error for season %s: %s", dash_season, e)
-                        continue
-            
-            if games_df is None or games_df.empty:
-                self.logger.warning("No stats found for team '%s' (team_id=%s) after trying TeamGameLog and TeamDashboard endpoints. Using placeholder data.", team_name, team_id)
+                self.logger.warning("No NBA API data for '%s' after all seasons. Using placeholder.", team_name)
                 return self.get_placeholder_stats(team_name)
-            
-            # Check if we're using dashboard data (different structure) or game log data
-            is_dashboard_data = games_df.shape[0] == 1 and 'FG_PCT' in games_df.columns and 'REB' in games_df.columns
-            
-            if is_dashboard_data:
-                # Dashboard data provides season totals, so we need to divide by games played for per-game averages
-                self.logger.debug("Using TeamDashboard data (season totals, converting to per-game averages)")
-                row = games_df.iloc[0]
-                gp = float(row.get('GP', 82)) if 'GP' in games_df.columns else 82.0
-                
-                # FG_PCT is already a percentage, not a total
-                shooting_pct = float(row.get('FG_PCT', 0.450)) if 'FG_PCT' in games_df.columns else 0.450
-                
-                # REB and TOV are totals, so divide by games played to get per-game averages
-                rebounding_avg = float(row.get('REB', 0.0)) / gp if 'REB' in games_df.columns and gp > 0 else 42.0
-                turnovers_avg = float(row.get('TOV', 0.0)) / gp if 'TOV' in games_df.columns and gp > 0 else 14.0
-                
-                # PLUS_MINUS is already a per-game average (or season total divided by games)
-                # Actually, it appears to be season total, so divide by GP
-                if 'PLUS_MINUS' in games_df.columns:
-                    net_rating_proxy = float(row.get('PLUS_MINUS', 0.0)) / gp if gp > 0 else 0.0
-                elif 'PTS' in games_df.columns:
-                    # PTS is season total, divide by GP then subtract league average
-                    pts_per_game = float(row.get('PTS', 0)) / gp if gp > 0 else 0
-                    net_rating_proxy = pts_per_game - 108.0  # League average proxy
-                else:
-                    net_rating_proxy = 0.0
-                
-                # Use actual games played, capped at 10 for display purposes
-                num_games = min(int(gp), 10) if gp > 0 else 10
+
+            recent = games_df.head(10)
+            num_games = len(recent)
+
+            shooting_pct = float(recent["FG_PCT"].mean()) if "FG_PCT" in recent.columns else 0.450
+            rebounding_avg = float(recent["REB"].mean()) if "REB" in recent.columns else 42.0
+            turnovers_avg = float(recent["TOV"].mean()) if "TOV" in recent.columns else 14.0
+            if "PLUS_MINUS" in recent.columns:
+                net_rating_proxy = float(recent["PLUS_MINUS"].mean())
+            elif "PTS" in recent.columns:
+                net_rating_proxy = float(recent["PTS"].mean()) - 108.0
             else:
-                # Game log data - calculate from individual games
-                recent_games = games_df.head(10) if games_df is not None and not games_df.empty else games_df
-                num_games = len(recent_games)
-                
-                # Calculate averages from game log
-                shooting_pct = recent_games['FG_PCT'].mean() if 'FG_PCT' in recent_games.columns else 0.450
-                rebounding_avg = recent_games['REB'].mean() if 'REB' in recent_games.columns else 42.0
-                turnovers_avg = recent_games['TOV'].mean() if 'TOV' in recent_games.columns else 14.0
-                
-                # Calculate net rating proxy (using point differential)
-                if 'PLUS_MINUS' in recent_games.columns:
-                    net_rating_proxy = recent_games['PLUS_MINUS'].mean()
-                else:
-                    # Fallback: calculate from points if available
-                    if 'PTS' in recent_games.columns:
-                        net_rating_proxy = recent_games['PTS'].mean() - 108.0  # League average proxy
-                    else:
-                        net_rating_proxy = 0.0
-            
-            # Ensure values are not NaN
-            shooting_pct = float(shooting_pct) if not (shooting_pct != shooting_pct) else 0.450
-            rebounding_avg = float(rebounding_avg) if not (rebounding_avg != rebounding_avg) else 42.0
-            turnovers_avg = float(turnovers_avg) if not (turnovers_avg != turnovers_avg) else 14.0
-            net_rating_proxy = float(net_rating_proxy) if not (net_rating_proxy != net_rating_proxy) else 0.0
-            
+                net_rating_proxy = 0.0
+
+            # Replace NaN with defaults
+            def _safe(val: float, default: float) -> float:
+                return val if val == val else default
+
             return {
                 "last_10_games": num_games,
-                "shooting_pct": round(shooting_pct, 3),
-                "rebounding_avg": round(rebounding_avg, 1),
-                "turnovers_avg": round(turnovers_avg, 1),
-                "net_rating_proxy": round(net_rating_proxy, 1),
+                "shooting_pct": round(_safe(shooting_pct, 0.450), 3),
+                "rebounding_avg": round(_safe(rebounding_avg, 42.0), 1),
+                "turnovers_avg": round(_safe(turnovers_avg, 14.0), 1),
+                "net_rating_proxy": round(_safe(net_rating_proxy, 0.0), 1),
                 "team_name": team_name,
-                "data_source": "nba_api"
+                "data_source": "nba_api",
             }
-            
+
         except Exception as e:
-            self.logger.error("Error fetching stats for team '%s': %s", team_name, e, exc_info=True)
+            self.logger.error("Error fetching NBA API stats for '%s': %s", team_name, e, exc_info=True)
             return self.get_placeholder_stats(team_name)
 

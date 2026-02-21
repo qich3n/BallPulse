@@ -213,8 +213,8 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
         logger.warning("Error building Reddit sources: %s", e)
     
     stats_sources = [
-        f"NBA API stats for {team1_name}",
-        f"NBA API stats for {team2_name}"
+        f"{'ESPN API' if team1_stats.get('data_source') == 'espn_api' else 'NBA API'} stats for {team1_name}",
+        f"{'ESPN API' if team2_stats.get('data_source') == 'espn_api' else 'NBA API'} stats for {team2_name}",
     ]
     
     return CompareResponse(

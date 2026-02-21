@@ -3,7 +3,7 @@ import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .routes import health, compare, teams, history, matchup, espn, games
@@ -72,4 +72,10 @@ async def read_root():
         return FileResponse("static/index.html")
     except FileNotFoundError:
         return {"message": "Frontend not found. API is available at /docs"}
+
+
+@app.head("/")
+async def read_root_head():
+    """Handle HEAD requests for the root path (used by uptime monitors / Render health checks)"""
+    return Response(status_code=200)
 
