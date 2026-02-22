@@ -565,10 +565,19 @@ def _parse_odds_comparison(
     away_team: str,
     our_predicted_winner: str,
     our_win_probability: float
-) -> Optional[OddsComparison]:
-    """Parse ESPN odds data and compare with our prediction"""
+) -> OddsComparison:
+    """Parse ESPN odds data and compare with our prediction.
+    
+    Always returns an OddsComparison. When Vegas odds are unavailable,
+    returns our model's prediction data with Vegas fields set to None.
+    """
     if not odds_data:
-        return None
+        # No Vegas odds from ESPN - return our prediction data only
+        return OddsComparison(
+            our_favorite=our_predicted_winner,
+            our_win_prob=round(our_win_probability, 3),
+            agreement=True,  # No Vegas to disagree with
+        )
     
     spread = odds_data.get("spread")
     over_under = odds_data.get("over_under")

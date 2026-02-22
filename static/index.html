@@ -4238,11 +4238,14 @@
                         </div>
                         ` : ''}
                         
-                        ${game.odds ? `
+                        ${game.odds ? (() => {
+                            const hasVegasOdds = game.odds.spread !== null && game.odds.spread !== undefined;
+                            return `
                         <div class="pick-odds">
+                            ${hasVegasOdds ? `
                             <div class="odds-item">
                                 <div class="odds-label">Spread</div>
-                                <div class="odds-value">${game.odds.spread !== null ? (game.odds.spread > 0 ? '+' : '') + game.odds.spread.toFixed(1) : 'N/A'}</div>
+                                <div class="odds-value">${(game.odds.spread > 0 ? '+' : '') + game.odds.spread.toFixed(1)}</div>
                             </div>
                             <div class="odds-item">
                                 <div class="odds-label">Over/Under</div>
@@ -4255,16 +4258,22 @@
                             <div class="odds-item">
                                 <div class="odds-label">Vegas Implied</div>
                                 <div class="odds-value">${game.odds.vegas_implied_prob ? (game.odds.vegas_implied_prob * 100).toFixed(0) + '%' : 'N/A'}</div>
+                            </div>` : ''}
+                            <div class="odds-item">
+                                <div class="odds-label">Our Pick</div>
+                                <div class="odds-value" style="color: var(--primary); font-weight: 600;">${game.odds.our_favorite}</div>
                             </div>
                             <div class="odds-item">
                                 <div class="odds-label">Our Prob</div>
-                                <div class="odds-value">${game.odds.our_win_prob ? (game.odds.our_win_prob * 100).toFixed(0) + '%' : 'N/A'}</div>
+                                <div class="odds-value" style="font-weight: 600;">${game.odds.our_win_prob ? (game.odds.our_win_prob * 100).toFixed(0) + '%' : 'N/A'}</div>
                             </div>
+                            ${hasVegasOdds ? `
                             <div class="odds-item" style="background: ${game.odds.edge_score > 5 ? 'rgba(16, 185, 129, 0.2)' : game.odds.edge_score < -5 ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg-tertiary)'}; border-radius: 8px;">
                                 <div class="odds-label">Edge Score</div>
                                 <div class="odds-value" style="color: ${game.odds.edge_score > 5 ? 'var(--success)' : game.odds.edge_score < -5 ? 'var(--danger)' : 'var(--text-primary)'}">${edgeScoreDisplay}</div>
-                            </div>
+                            </div>` : ''}
                         </div>
+                        ${hasVegasOdds ? `
                         <div class="odds-comparison ${game.odds.agreement ? 'agrees' : 'disagrees'}">
                             ${game.odds.agreement 
                                 ? (game.odds.edge_score > 5 
@@ -4276,10 +4285,14 @@
                         <div class="edge-badge">
                             🔥 ${game.odds.edge_score > 5 ? 'Edge: ' + edgeScoreDisplay + ' vs Vegas' : 'Potential Value Bet'}
                         </div>
-                        ` : ''}
-                        ` : `
+                        ` : ''}` : `
+                        <div style="text-align: center; color: var(--text-muted); font-size: 12px; padding: 8px 0 4px;">
+                            📊 Vegas odds not yet available — showing model prediction only
+                        </div>
+                        `}`;
+                        })() : `
                         <div style="text-align: center; color: var(--text-muted); padding: 16px;">
-                            No betting odds available for this game
+                            No prediction data available for this game
                         </div>
                         `}
                     </div>
