@@ -206,6 +206,8 @@ class BasketballProvider:
             "rebounding_avg": 42.0,
             "turnovers_avg": 14.0,
             "net_rating_proxy": 0.0,
+            "assists_avg": 24.0,
+            "win_pct": 0.0,
             "team_name": team_name,
             "data_source": "placeholder"
         }
@@ -301,6 +303,7 @@ class BasketballProvider:
             shooting_pct = float(recent["FG_PCT"].mean()) if "FG_PCT" in recent.columns else 0.450
             rebounding_avg = float(recent["REB"].mean()) if "REB" in recent.columns else 42.0
             turnovers_avg = float(recent["TOV"].mean()) if "TOV" in recent.columns else 14.0
+            assists_avg = float(recent["AST"].mean()) if "AST" in recent.columns else 24.0
             if "PLUS_MINUS" in recent.columns:
                 net_rating_proxy = float(recent["PLUS_MINUS"].mean())
             elif "PTS" in recent.columns:
@@ -308,7 +311,14 @@ class BasketballProvider:
             else:
                 net_rating_proxy = 0.0
 
-            # Replace NaN with defaults
+            # Win % from full game log
+            if "WL" in games_df.columns:
+                total = len(games_df)
+                wins = (games_df["WL"] == "W").sum()
+                win_pct = wins / total if total > 0 else 0.0
+            else:
+                win_pct = 0.0
+
             def _safe(val: float, default: float) -> float:
                 return val if val == val else default
 
@@ -318,6 +328,8 @@ class BasketballProvider:
                 "rebounding_avg": round(_safe(rebounding_avg, 42.0), 1),
                 "turnovers_avg": round(_safe(turnovers_avg, 14.0), 1),
                 "net_rating_proxy": round(_safe(net_rating_proxy, 0.0), 1),
+                "assists_avg": round(_safe(assists_avg, 24.0), 1),
+                "win_pct": round(_safe(win_pct, 0.0), 3),
                 "team_name": team_name,
                 "data_source": "nba_api",
             }

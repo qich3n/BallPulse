@@ -496,11 +496,24 @@ class ESPNProvider:
             or 0.0
         )
 
+        assists = (
+            raw.get("avgAssists")
+            or raw.get("assistsPerGame")
+            or raw.get("assists")
+            or 24.0
+        )
+
+        win_pct = raw.get("winPercent", 0)
+        if win_pct and win_pct > 1.0:
+            win_pct = win_pct / 100.0
+
         return {
             "shooting_pct": round(float(fg_pct), 3),
             "rebounding_avg": round(float(rebounds), 1),
             "turnovers_avg": round(float(turnovers), 1),
             "net_rating_proxy": round(float(plus_minus), 1),
+            "assists_avg": round(float(assists), 1),
+            "win_pct": round(float(win_pct), 3),
             "team_name": team_identifier,
             "data_source": "espn_api",
         }

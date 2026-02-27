@@ -168,35 +168,69 @@ def _calculate_team_score(team_name: str) -> float:
 
 def _get_team_recent_form(team_name: str) -> Dict[str, Any]:
     """
-    Get recent form data for a team (streak, last 10 record).
-    
-    Uses cached ESPN team data to avoid slow API calls.
-    
+    Get recent form data for a team using ESPN's cached team record.
+
+    ESPN's get_team() is already called during score calculation and cached
+    internally, so this adds no extra HTTP round-trips.
+
     Returns:
-        Dict with streak, last_10_wins, last_10_losses, is_hot, form_string
+        Dict with streak, last_10_wins, last_10_losses, is_hot, form_string,
+        last_10_record, home_record, away_record
     """
     import time
-    
+
     cache_key = team_name.lower()
     if cache_key in _team_form_cache:
         cached_form, cached_time = _team_form_cache[cache_key]
         if time.time() - cached_time < _CACHE_TTL:
             return cached_form
-    
-    # Return neutral form data - don't make expensive API calls
-    # The team stats from basketball_provider already give us performance info
-    form_data = {
-        "streak": 0,
-        "last_10_wins": 5,
-        "last_10_losses": 5,
-        "is_hot": False,
-        "is_cold": False,
-        "form_string": "",
-        "last_10_record": ""
+
+    neutral = {
+        "streak": 0, "last_10_wins": 5, "last_10_losses": 5,
+        "is_hot": False, "is_cold": False, "form_string": "",
+        "last_10_record": "", "home_record": "", "away_record": "",
     }
-    
-    _team_form_cache[cache_key] = (form_data, time.time())
-    return form_data
+
+    try:
+        team_data = espn_provider.get_team(team_name)
+        if not team_data:
+            _team_form_cache[cache_key] = (neutral, time.time())
+            return neutral
+
+        record = team_data.get("record", {})
+        streak = int(record.get("streak", 0))
+        home_record = str(record.get("home_record", ""))
+        away_record = str(record.get("away_record", ""))
+
+        is_hot = streak >= 4
+        is_cold = streak <= -4
+
+        if streak > 0:
+            form_string = f"W{streak}"
+        elif streak < 0:
+            form_string = f"L{abs(streak)}"
+        else:
+            form_string = ""
+
+        form_data = {
+            "streak": streak,
+            "last_10_wins": 5 + max(-5, min(5, streak)),
+            "last_10_losses": 5 - max(-5, min(5, streak)),
+            "is_hot": is_hot,
+            "is_cold": is_cold,
+            "form_string": form_string,
+            "last_10_record": "",
+            "home_record": home_record,
+            "away_record": away_record,
+        }
+
+        _team_form_cache[cache_key] = (form_data, time.time())
+        return form_data
+
+    except Exception as e:
+        logger.warning("Failed to get form data for %s: %s", team_name, e)
+        _team_form_cache[cache_key] = (neutral, time.time())
+        return neutral
 
 
 def _get_quick_h2h(_team1: str, _team2: str) -> HeadToHeadSummary:
@@ -502,43 +536,79 @@ def _sigmoid(x: float, steepness: float = 4.0) -> float:
     return 1.0 / (1.0 + math.exp(-steepness * x))
 
 
-def _calculate_win_probability(home_score: float, away_score: float, home_advantage: float = 0.03) -> float:
+def _parse_record_string(record_str: str) -> tuple:
+    """Parse a record string like '20-5' into (wins, losses). Returns (0, 0) on failure."""
+    if not record_str or "-" not in record_str:
+        return 0, 0
+    try:
+        parts = record_str.split("-")
+        return int(parts[0]), int(parts[1])
+    except (ValueError, IndexError):
+        return 0, 0
+
+
+def _calculate_win_probability(
+    home_score: float,
+    away_score: float,
+    home_advantage: float = 0.03,
+    home_form: Optional[Dict[str, Any]] = None,
+    away_form: Optional[Dict[str, Any]] = None,
+) -> float:
     """
-    Calculate win probability using sigmoid function.
-    
-    This converts the difference in team strength scores to a probability
-    using a sigmoid curve, which is more realistic than a simple ratio.
-    
-    Args:
-        home_score: Home team strength score (0-1)
-        away_score: Away team strength score (0-1)
-        home_advantage: Home court advantage bonus (default 3%)
-    
+    Calculate win probability using sigmoid function with context-aware
+    home court advantage.
+
+    When home/away record splits are available, the flat bonus is replaced
+    with a data-driven value based on how well the home team performs at
+    home vs how well the away team performs on the road.
+
     Returns:
         Home team win probability (0-1)
     """
-    # Apply home court advantage
-    adjusted_diff = (home_score + home_advantage) - away_score
-    
-    # Use sigmoid to convert difference to probability
-    # steepness=4 means a 0.25 difference gives ~73% probability
+    hca = home_advantage
+
+    if home_form and away_form:
+        hw, hl = _parse_record_string(home_form.get("home_record", ""))
+        aw, al = _parse_record_string(away_form.get("away_record", ""))
+        home_games = hw + hl
+        away_games = aw + al
+
+        if home_games >= 5 and away_games >= 5:
+            home_wpct_at_home = hw / home_games
+            away_wpct_on_road = aw / away_games
+            # Positive when the home team overperforms at home AND/OR
+            # the away team underperforms on the road.
+            hca = (home_wpct_at_home - away_wpct_on_road) * 0.06
+            hca = max(0.0, min(0.08, hca))
+
+    adjusted_diff = (home_score + hca) - away_score
     return _sigmoid(adjusted_diff, steepness=4.0)
 
 
-def _moneyline_to_implied_prob(moneyline: int) -> float:
-    """
-    Convert American moneyline odds to implied probability.
-    
-    Examples:
-        -150 -> 60% implied probability
-        +150 -> 40% implied probability
-    """
+def _moneyline_to_raw_implied_prob(moneyline: int) -> float:
+    """Convert American moneyline to raw (vig-included) implied probability."""
     if moneyline < 0:
-        # Favorite: -150 means bet $150 to win $100
         return abs(moneyline) / (abs(moneyline) + 100)
     else:
-        # Underdog: +150 means bet $100 to win $150
         return 100 / (moneyline + 100)
+
+
+def _moneylines_to_fair_probs(ml_home: int, ml_away: int) -> tuple:
+    """
+    Convert a pair of moneylines to vig-free (fair) probabilities.
+
+    Raw implied probs include the bookmaker's overround (typically 3-5%).
+    Dividing by the total removes the vig so the probs sum to 1.0.
+
+    Returns:
+        (home_fair_prob, away_fair_prob)
+    """
+    raw_home = _moneyline_to_raw_implied_prob(ml_home)
+    raw_away = _moneyline_to_raw_implied_prob(ml_away)
+    total = raw_home + raw_away  # > 1.0 due to vig
+    if total == 0:
+        return 0.5, 0.5
+    return raw_home / total, raw_away / total
 
 
 def _calculate_edge_score(our_prob: float, vegas_implied_prob: float, same_pick: bool) -> float:
@@ -600,14 +670,14 @@ def _parse_odds_comparison(
     moneyline_home = home_odds.get("moneyLine") if home_odds else None
     moneyline_away = away_odds.get("moneyLine") if away_odds else None
     
-    # Calculate Vegas implied probability from moneylines
+    # Calculate vig-free Vegas implied probability from moneylines
     vegas_implied_prob = None
     if moneyline_home is not None and moneyline_away is not None:
-        # Get implied prob for the favorite
+        home_fair, away_fair = _moneylines_to_fair_probs(moneyline_home, moneyline_away)
         if vegas_favorite == home_team:
-            vegas_implied_prob = _moneyline_to_implied_prob(moneyline_home)
+            vegas_implied_prob = home_fair
         elif vegas_favorite == away_team:
-            vegas_implied_prob = _moneyline_to_implied_prob(moneyline_away)
+            vegas_implied_prob = away_fair
     
     # Compare with our prediction
     agreement = (vegas_favorite == our_predicted_winner) if vegas_favorite and vegas_favorite != "Pick'em" else True
@@ -709,8 +779,11 @@ async def get_todays_games(
             home_score = min(1.0, max(0.0, home_base_score + home_form_adj + home_h2h_adj))
             away_score = min(1.0, max(0.0, away_base_score + away_form_adj + away_h2h_adj))
             
-            # Calculate win probability using sigmoid function with home court advantage
-            home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
+            # Calculate win probability using sigmoid function with context-aware home court advantage
+            home_win_prob = _calculate_win_probability(
+                home_score, away_score, home_advantage=0.03,
+                home_form=home_form, away_form=away_form,
+            )
             
             # Determine predicted winner
             if home_win_prob >= 0.5:
@@ -860,7 +933,10 @@ async def get_games_by_date(
             home_score = min(1.0, max(0.0, home_base_score + home_form_adj + home_h2h_adj))
             away_score = min(1.0, max(0.0, away_base_score + away_form_adj + away_h2h_adj))
             
-            home_win_prob = _calculate_win_probability(home_score, away_score, home_advantage=0.03)
+            home_win_prob = _calculate_win_probability(
+                home_score, away_score, home_advantage=0.03,
+                home_form=home_form, away_form=away_form,
+            )
             
             if home_win_prob >= 0.5:
                 predicted_winner = home_name

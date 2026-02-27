@@ -52,37 +52,43 @@ class ScoringService:
         Returns:
             Score between 0 and 1
         """
-        # Default values if stats not available
         if not stats or stats.get('data_source') == 'placeholder':
-            return 0.5  # Neutral score
-        
-        # Extract stats (normalized to reasonable ranges)
+            return 0.5
+
         shooting_pct = stats.get('shooting_pct', 0.45)
         rebounding_avg = stats.get('rebounding_avg', 42.0)
         turnovers_avg = stats.get('turnovers_avg', 14.0)
         net_rating_proxy = stats.get('net_rating_proxy', 0.0)
-        
-        # Normalize stats to 0-1 range
-        # Shooting: 0.35-0.55 (typical NBA range)
+        assists_avg = stats.get('assists_avg', 24.0)
+        win_pct = stats.get('win_pct', 0.0)
+
         shooting_score = self._normalize_stat(shooting_pct, 0.35, 0.55)
-        
-        # Rebounding: 35-50 (typical NBA range)
         rebounding_score = self._normalize_stat(rebounding_avg, 35.0, 50.0)
-        
-        # Turnovers: lower is better, so invert (12-18 range)
         turnover_score = 1.0 - self._normalize_stat(turnovers_avg, 12.0, 18.0)
-        
-        # Net rating: -10 to +10 range
         net_rating_score = self._normalize_stat(net_rating_proxy, -10.0, 10.0)
-        
-        # Weighted combination
-        stats_score = (
-            shooting_score * 0.3 +
-            rebounding_score * 0.2 +
-            turnover_score * 0.2 +
-            net_rating_score * 0.3
-        )
-        
+        assists_score = self._normalize_stat(assists_avg, 20.0, 30.0)
+
+        # Win % is the strongest single predictor of future performance.
+        # When available (> 0), fold it in with significant weight.
+        if win_pct > 0:
+            win_pct_score = self._normalize_stat(win_pct, 0.25, 0.75)
+            stats_score = (
+                win_pct_score * 0.25 +
+                net_rating_score * 0.22 +
+                shooting_score * 0.18 +
+                assists_score * 0.12 +
+                rebounding_score * 0.12 +
+                turnover_score * 0.11
+            )
+        else:
+            stats_score = (
+                net_rating_score * 0.28 +
+                shooting_score * 0.22 +
+                assists_score * 0.15 +
+                rebounding_score * 0.18 +
+                turnover_score * 0.17
+            )
+
         return max(0.0, min(1.0, stats_score))
     
     def calculate_sentiment_tilt(self, sentiment_summary: str) -> float:
