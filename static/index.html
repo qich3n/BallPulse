@@ -2611,6 +2611,146 @@
                 font-size: 24px;
             }
         }
+
+        .dashboard-shell {
+            display: grid;
+            gap: 20px;
+        }
+
+        .dashboard-hero {
+            background: linear-gradient(140deg, var(--bg-card), var(--bg-tertiary));
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 18px;
+            flex-wrap: wrap;
+        }
+
+        .dashboard-hero-title {
+            font-size: 30px;
+            line-height: 1.15;
+            font-weight: 750;
+            letter-spacing: -0.4px;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .dashboard-hero-subtitle {
+            color: var(--text-secondary);
+            font-size: 14px;
+            max-width: 700px;
+            line-height: 1.6;
+        }
+
+        .dashboard-hero-tags {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 14px;
+        }
+
+        .dashboard-tag {
+            font-size: 12px;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 10px;
+            white-space: nowrap;
+        }
+
+        .dashboard-insights {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .insight-card {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            padding: 14px 16px;
+            min-height: 92px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .insight-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .insight-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--text-primary);
+            line-height: 1;
+        }
+
+        .insight-note {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .dashboard-panel {
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            padding: 10px;
+        }
+
+        .dashboard-panel .form-card {
+            margin-bottom: 0;
+            border: none;
+            box-shadow: none;
+            background: transparent;
+            padding: 16px;
+        }
+
+        .dashboard-result-placeholder {
+            border-radius: 12px;
+            border: 1px dashed var(--border-light);
+            background: var(--bg-card);
+            padding: 24px;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .dashboard-result-placeholder-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 1100px) {
+            .dashboard-insights {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-hero {
+                padding: 18px;
+            }
+            .dashboard-hero-title {
+                font-size: 24px;
+            }
+            .dashboard-insights {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-panel .form-card {
+                padding: 10px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -2715,67 +2855,113 @@
 
         <!-- Dashboard Page -->
         <div class="page-container active" id="dashboardPage">
-        <!-- Form Card -->
-        <div class="form-card">
-            <form id="compareForm">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Team 1</label>
-                        <input type="text" class="form-input" id="team1" name="team1" placeholder="e.g., Los Angeles Lakers" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Team 2</label>
-                        <input type="text" class="form-input" id="team2" name="team2" placeholder="e.g., Boston Celtics" required>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Sport</label>
-                    <select class="form-input" id="sport" name="sport">
-                        <option value="basketball">Basketball</option>
-                    </select>
-                </div>
-                <div class="context-toggle">
-                    <div class="context-toggle-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
-                        <h4>Optional Context</h4>
-                        <span style="color: var(--text-muted);">▼</span>
-                    </div>
-                    <div class="context-content" style="display: none;">
-                        <div class="form-group">
-                            <label class="form-label">Game Date</label>
-                            <input type="date" class="form-input" id="gameDate" name="gameDate">
+            <div class="dashboard-shell">
+                <div class="dashboard-hero">
+                    <div>
+                        <div class="dashboard-hero-title">Modern NBA Matchup Intelligence</div>
+                        <div class="dashboard-hero-subtitle">
+                            Compare any two teams instantly using stats, context, and sentiment. Built for clarity with fast reads, clean predictions, and actionable confidence.
                         </div>
-                        <div class="form-group">
-                            <label class="form-label">Injuries (comma-separated)</label>
-                            <input type="text" class="form-input" id="injuries" name="injuries" placeholder="e.g., Player X - Out, Player Y - Questionable">
+                        <div class="dashboard-hero-tags">
+                            <span class="dashboard-tag">Live API Pipeline</span>
+                            <span class="dashboard-tag">Minimal UI</span>
+                            <span class="dashboard-tag">Prediction Confidence</span>
                         </div>
                     </div>
                 </div>
-                <button type="submit" class="btn-primary" id="submitBtn">Analyze Matchup</button>
-            </form>
-        </div>
 
-        <!-- Error Container -->
-        <div id="errorContainer" class="hidden"></div>
+                <div class="dashboard-insights">
+                    <div class="insight-card">
+                        <div class="insight-label">Projected Winner</div>
+                        <div class="insight-value" id="insightWinner">--</div>
+                        <div class="insight-note">Updates after each analysis</div>
+                    </div>
+                    <div class="insight-card">
+                        <div class="insight-label">Win Probability</div>
+                        <div class="insight-value" id="insightWinProb">--%</div>
+                        <div class="insight-note">Model confidence edge</div>
+                    </div>
+                    <div class="insight-card">
+                        <div class="insight-label">Confidence Tier</div>
+                        <div class="insight-value" id="insightConfidence">--</div>
+                        <div class="insight-note">High, medium, low, toss-up</div>
+                    </div>
+                    <div class="insight-card">
+                        <div class="insight-label">Predicted Score</div>
+                        <div class="insight-value" id="insightScore">--</div>
+                        <div class="insight-note">Score breakdown summary</div>
+                    </div>
+                </div>
 
-        <!-- Loading State -->
-        <div id="loadingContainer" class="hidden">
-            <div class="loading-card">
-                <div class="spinner"></div>
-                <p class="loading-text">Analyzing teams and gathering data...</p>
+                <div class="dashboard-panel">
+                    <!-- Form Card -->
+                    <div class="form-card">
+                        <form id="compareForm">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Team 1</label>
+                                    <input type="text" class="form-input" id="team1" name="team1" placeholder="e.g., Los Angeles Lakers" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Team 2</label>
+                                    <input type="text" class="form-input" id="team2" name="team2" placeholder="e.g., Boston Celtics" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Sport</label>
+                                <select class="form-input" id="sport" name="sport">
+                                    <option value="basketball">Basketball</option>
+                                </select>
+                            </div>
+                            <div class="context-toggle">
+                                <div class="context-toggle-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
+                                    <h4>Optional Context</h4>
+                                    <span style="color: var(--text-muted);">▼</span>
+                                </div>
+                                <div class="context-content" style="display: none;">
+                                    <div class="form-group">
+                                        <label class="form-label">Game Date</label>
+                                        <input type="date" class="form-input" id="gameDate" name="gameDate">
+                                    </div>
+                                    <div class="form-group">
+                                        <label class="form-label">Injuries (comma-separated)</label>
+                                        <input type="text" class="form-input" id="injuries" name="injuries" placeholder="e.g., Player X - Out, Player Y - Questionable">
+                                    </div>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn-primary" id="submitBtn">Analyze Matchup</button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Error Container -->
+                <div id="errorContainer" class="hidden"></div>
+
+                <!-- Loading State -->
+                <div id="loadingContainer" class="hidden">
+                    <div class="loading-card">
+                        <div class="spinner"></div>
+                        <p class="loading-text">Analyzing teams and gathering data...</p>
+                    </div>
+                </div>
+
+                <div id="dashboardEmptyState" class="dashboard-result-placeholder">
+                    <div class="dashboard-result-placeholder-title">Start by comparing two teams</div>
+                    <p>Your modern analysis dashboard will populate here with projected winner, confidence level, and matchup breakdown.</p>
+                </div>
+
+                <!-- Results Container -->
+                <div id="resultsContainer" class="hidden">
+                    <!-- Matchup Section -->
+                    <div class="matchup-section" id="matchupSection"></div>
+
+                    <!-- Team Cards -->
+                    <div class="team-cards" id="teamCards"></div>
+
+                    <!-- Sentiment Section -->
+                    <div class="sentiment-section" id="sentimentSection"></div>
+                </div>
             </div>
-        </div>
-
-        <!-- Results Container -->
-        <div id="resultsContainer" class="hidden">
-            <!-- Matchup Section -->
-            <div class="matchup-section" id="matchupSection"></div>
-
-            <!-- Team Cards -->
-            <div class="team-cards" id="teamCards"></div>
-
-            <!-- Sentiment Section -->
-            <div class="sentiment-section" id="sentimentSection"></div>
-        </div>
         </div>
 
         <!-- Teams Page -->
@@ -2994,6 +3180,11 @@
         const errorContainer = document.getElementById('errorContainer');
         const loadingContainer = document.getElementById('loadingContainer');
         const resultsContainer = document.getElementById('resultsContainer');
+        const dashboardEmptyState = document.getElementById('dashboardEmptyState');
+        const insightWinner = document.getElementById('insightWinner');
+        const insightWinProb = document.getElementById('insightWinProb');
+        const insightConfidence = document.getElementById('insightConfidence');
+        const insightScore = document.getElementById('insightScore');
         const matchupSection = document.getElementById('matchupSection');
         const teamCards = document.getElementById('teamCards');
         const sentimentSection = document.getElementById('sentimentSection');
@@ -3003,6 +3194,7 @@
             
             errorContainer.classList.add('hidden');
             resultsContainer.classList.add('hidden');
+            dashboardEmptyState.classList.remove('hidden');
             loadingContainer.classList.remove('hidden');
             submitBtn.disabled = true;
 
@@ -3294,9 +3486,14 @@
             const isTeam1Winner = predictedWinner.toLowerCase() === team1Name.toLowerCase();
             const winProbPercent = Math.round(data.matchup.win_probability * 100);
             const team2WinProb = 100 - winProbPercent;
+            const scoreBreakdown = data.matchup.score_breakdown.replace('Predicted final score: ', '');
+
+            insightWinner.textContent = predictedWinner;
+            insightWinProb.textContent = `${isTeam1Winner ? winProbPercent : team2WinProb}%`;
+            insightConfidence.textContent = data.matchup.confidence_label;
+            insightScore.textContent = scoreBreakdown;
             
             // Matchup Section
-            const scoreBreakdown = data.matchup.score_breakdown.replace('Predicted final score: ', '');
             matchupSection.innerHTML = `
                 <div class="game-info">
                     <div>
@@ -3414,6 +3611,7 @@
             `;
 
             resultsContainer.classList.remove('hidden');
+            dashboardEmptyState.classList.add('hidden');
             
             // Smooth scroll to results
             resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
