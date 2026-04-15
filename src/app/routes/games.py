@@ -8,30 +8,50 @@ Provides endpoints for:
 """
 
 import logging
+import asyncio
+import time
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from datetime import datetime
+from datetime import datetime, timedelta
 import httpx
+import diskcache
 from ..providers.espn_provider import ESPNProvider, Sport, League
 from ..providers.basketball_provider import BasketballProvider
 from ..services.scoring_service import ScoringService
 from ..services.rate_limiter import limiter, RATE_LIMITS
+from ..config import cfg
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/games", tags=["games"])
+
+# Config sections
+_games_cfg  = cfg.get("games", {})
+_cache_cfg  = cfg.get("cache", {})
+_edge_cfg   = _games_cfg.get("edge", {})
+_form_cfg   = _games_cfg.get("form", {})
+_h2h_cfg    = _games_cfg.get("h2h", {})
+_hca_cfg    = _games_cfg.get("home_advantage", {})
+_reason_cfg = _games_cfg.get("reasoning", {})
 
 # Initialize providers and services
 espn_provider = ESPNProvider(sport=Sport.BASKETBALL, league=League.NBA)
 basketball_provider = BasketballProvider()
 scoring_service = ScoringService()
 
-# Simple in-memory cache for team scores (refreshed every 30 minutes)
-_team_score_cache: Dict[str, tuple] = {}  # {team_name: (score, timestamp)}
-_team_form_cache: Dict[str, tuple] = {}  # {team_name: (form_data, timestamp)}
-_h2h_cache: Dict[str, tuple] = {}  # {"team1_team2": (h2h_data, timestamp)}
-_CACHE_TTL = 1800  # 30 minutes
-_H2H_CACHE_TTL = 3600  # 1 hour for H2H data
+# Simple in-memory cache for team scores
+_team_score_cache: Dict[str, tuple] = {}
+_team_form_cache: Dict[str, tuple] = {}
+_h2h_cache: Dict[str, tuple] = {}
+_CACHE_TTL = _cache_cfg.get("team_score_ttl", 1800)
+_H2H_CACHE_TTL = _cache_cfg.get("h2h_ttl", 3600)
+_H2H_STALE_TTL = _cache_cfg.get("h2h_stale_ttl", 21600)
+_H2H_REFRESH_LOCK_TTL = _cache_cfg.get("h2h_refresh_lock_ttl", 30)
+_H2H_SCAN_DAYS = _cache_cfg.get("h2h_scan_days", 120)
+_H2H_CACHE_DIR = _cache_cfg.get("h2h_cache_dir", ".cache/h2h")
+
+# Persistent H2H cache: shared across process restarts.
+_h2h_persistent_cache = diskcache.Cache(_H2H_CACHE_DIR)
 
 
 # ==================== Models ====================
@@ -248,32 +268,244 @@ def _get_quick_h2h(_team1: str, _team2: str) -> HeadToHeadSummary:
     return HeadToHeadSummary()
 
 
+def _canonical_team_pair(
+    team1_name: str,
+    team2_name: str,
+    team1_id: Optional[str] = None,
+    team2_id: Optional[str] = None,
+) -> tuple[str, str]:
+    """Return a stable ordered team pair for cache keys."""
+    one = (f"id:{team1_id}" if team1_id else f"name:{team1_name.lower().strip()}")
+    two = (f"id:{team2_id}" if team2_id else f"name:{team2_name.lower().strip()}")
+    return tuple(sorted([one, two]))
+
+
+def _build_h2h_cache_key(
+    team1_name: str,
+    team2_name: str,
+    limit: int,
+    team1_id: Optional[str] = None,
+    team2_id: Optional[str] = None,
+) -> str:
+    """Build canonical cache key for a matchup regardless of team order."""
+    t1, t2 = _canonical_team_pair(team1_name, team2_name, team1_id, team2_id)
+    return f"h2h:nba:{t1}:{t2}:limit:{limit}"
+
+
+def _snapshot_is_fresh(snapshot: Dict[str, Any]) -> bool:
+    """Check if a cached H2H snapshot is within fresh TTL."""
+    fetched_at = snapshot.get("fetched_at")
+    if not fetched_at:
+        return False
+    try:
+        fetched_ts = datetime.fromisoformat(fetched_at).timestamp()
+    except (TypeError, ValueError):
+        return False
+    return (time.time() - fetched_ts) < _H2H_CACHE_TTL
+
+
+def _resolve_team_match(
+    query_name: str,
+    query_abbrev: str,
+    query_id: Optional[str],
+    home_name: str,
+    away_name: str,
+    home_abbrev: str,
+    away_abbrev: str,
+    home_id: Optional[str],
+    away_id: Optional[str],
+) -> bool:
+    """Determine whether the requested team is in the current game."""
+    if query_id and (query_id == home_id or query_id == away_id):
+        return True
+    return (
+        query_name in home_name
+        or query_name in away_name
+        or (query_abbrev and (query_abbrev == home_abbrev or query_abbrev == away_abbrev))
+    )
+
+
+def _compute_head_to_head(
+    team1: str,
+    team2: str,
+    limit: int,
+    team1_info: Optional[Dict[str, Any]] = None,
+    team2_info: Optional[Dict[str, Any]] = None,
+) -> HeadToHeadResponse:
+    """
+    Build head-to-head history by scanning recent scoreboards.
+    Expensive path: only used on cache miss/refresh.
+    """
+    team1_lower = team1.lower()
+    team2_lower = team2.lower()
+
+    team1_name = team1_info.get("name", team1) if team1_info else team1
+    team2_name = team2_info.get("name", team2) if team2_info else team2
+    team1_abbrev = team1_info.get("abbreviation", "").lower() if team1_info else ""
+    team2_abbrev = team2_info.get("abbreviation", "").lower() if team2_info else ""
+    team1_id = str(team1_info.get("id")) if team1_info and team1_info.get("id") is not None else None
+    team2_id = str(team2_info.get("id")) if team2_info and team2_info.get("id") is not None else None
+
+    games = []
+    team1_wins = 0
+    team2_wins = 0
+    current_date = datetime.now()
+
+    for days_back in range(_H2H_SCAN_DAYS):
+        check_date = current_date - timedelta(days=days_back)
+        date_str = check_date.strftime("%Y%m%d")
+        try:
+            scoreboard = espn_provider.get_scoreboard(date=date_str)
+            for event in scoreboard.get("events", []):
+                competition = event.get("competitions", [{}])[0]
+                competitors = competition.get("competitors", [])
+                if len(competitors) < 2:
+                    continue
+
+                home = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0])
+                away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
+
+                home_team = home.get("team", {})
+                away_team = away.get("team", {})
+
+                home_name = home_team.get("displayName", "").lower()
+                away_name = away_team.get("displayName", "").lower()
+                home_abbrev = home_team.get("abbreviation", "").lower()
+                away_abbrev = away_team.get("abbreviation", "").lower()
+                home_id = str(home_team.get("id")) if home_team.get("id") is not None else None
+                away_id = str(away_team.get("id")) if away_team.get("id") is not None else None
+
+                team1_in_game = _resolve_team_match(
+                    team1_lower, team1_abbrev, team1_id,
+                    home_name, away_name, home_abbrev, away_abbrev, home_id, away_id
+                )
+                team2_in_game = _resolve_team_match(
+                    team2_lower, team2_abbrev, team2_id,
+                    home_name, away_name, home_abbrev, away_abbrev, home_id, away_id
+                )
+
+                if not (team1_in_game and team2_in_game):
+                    continue
+
+                status = event.get("status", {}).get("type", {}).get("name", "")
+                if status != "STATUS_FINAL":
+                    continue
+
+                home_score = int(home.get("score", 0))
+                away_score = int(away.get("score", 0))
+                home_display = home_team.get("displayName", "Unknown")
+                away_display = away_team.get("displayName", "Unknown")
+                winner = home_display if home_score > away_score else away_display
+
+                winner_lower = winner.lower()
+                if (
+                    (team1_id and (winner_lower == home_name and home_id == team1_id))
+                    or (team1_id and (winner_lower == away_name and away_id == team1_id))
+                    or (team1_lower in winner_lower)
+                    or (team1_abbrev and team1_abbrev in winner_lower)
+                ):
+                    team1_wins += 1
+                else:
+                    team2_wins += 1
+
+                games.append(HeadToHeadGame(
+                    game_id=event.get("id", ""),
+                    date=event.get("date", ""),
+                    season=event.get("season", {}).get("year"),
+                    home_team=home_display,
+                    away_team=away_display,
+                    home_score=home_score,
+                    away_score=away_score,
+                    winner=winner,
+                    venue=competition.get("venue", {}).get("fullName")
+                ))
+                if len(games) >= limit:
+                    break
+            if len(games) >= limit:
+                break
+        except (httpx.HTTPError, ValueError, KeyError) as e:
+            logger.debug("Error checking date %s for H2H: %s", date_str, e)
+            continue
+
+    games.sort(key=lambda x: x.date, reverse=True)
+    last_meeting = games[0] if games else None
+
+    home_advantage = None
+    if games:
+        team1_home_wins = sum(1 for g in games if team1_lower in g.home_team.lower() and team1_lower in g.winner.lower())
+        team2_home_wins = sum(1 for g in games if team2_lower in g.home_team.lower() and team2_lower in g.winner.lower())
+        home_advantage = {
+            "team1_home_record": f"{team1_home_wins} wins at home",
+            "team2_home_record": f"{team2_home_wins} wins at home"
+        }
+
+    return HeadToHeadResponse(
+        team1=team1_name,
+        team2=team2_name,
+        total_games=len(games),
+        team1_wins=team1_wins,
+        team2_wins=team2_wins,
+        games=games[:limit],
+        last_meeting=last_meeting,
+        home_advantage=home_advantage
+    )
+
+
+async def _refresh_h2h_cache(
+    cache_key: str,
+    team1: str,
+    team2: str,
+    limit: int,
+    team1_info: Optional[Dict[str, Any]],
+    team2_info: Optional[Dict[str, Any]],
+) -> None:
+    """Refresh H2H cache in background."""
+    lock_key = f"{cache_key}:lock"
+    if not _h2h_persistent_cache.add(lock_key, 1, expire=_H2H_REFRESH_LOCK_TTL):
+        return
+
+    try:
+        response = await asyncio.to_thread(
+            _compute_head_to_head,
+            team1,
+            team2,
+            limit,
+            team1_info,
+            team2_info,
+        )
+        snapshot = {
+            "fetched_at": datetime.now().isoformat(),
+            "payload": response.model_dump(),
+        }
+        _h2h_persistent_cache.set(cache_key, snapshot, expire=_H2H_STALE_TTL)
+    except Exception as e:
+        logger.warning("Background H2H refresh failed for key=%s: %s", cache_key, e)
+    finally:
+        _h2h_persistent_cache.delete(lock_key)
+
+
 def _calculate_form_adjustment(form_data: Dict[str, Any]) -> float:
-    """
-    Calculate score adjustment based on recent form.
-    
-    Returns:
-        Adjustment between -0.08 and +0.08
-    """
+    """Calculate score adjustment based on recent form."""
     last_10_wins = form_data.get("last_10_wins", 5)
     streak = form_data.get("streak", 0)
-    
-    # Base adjustment from last 10 record (neutral at 5-5)
-    record_adj = (last_10_wins - 5) * 0.01  # -0.05 to +0.05
-    
-    # Streak bonus/penalty
+
+    record_adj = (last_10_wins - 5) * _form_cfg.get("record_adj_per_game", 0.01)
+
+    st = _form_cfg.get("streak_thresholds", {})
     if streak >= 5:
-        streak_adj = 0.03  # Hot streak bonus
+        streak_adj = st.get("hot_5", 0.03)
     elif streak >= 3:
-        streak_adj = 0.015
+        streak_adj = st.get("hot_3", 0.015)
     elif streak <= -5:
-        streak_adj = -0.03  # Cold streak penalty
+        streak_adj = st.get("cold_5", -0.03)
     elif streak <= -3:
-        streak_adj = -0.015
+        streak_adj = st.get("cold_3", -0.015)
     else:
         streak_adj = 0
-    
-    return max(-0.08, min(0.08, record_adj + streak_adj))
+
+    adj_min = _form_cfg.get("adjustment_min", -0.08)
+    adj_max = _form_cfg.get("adjustment_max", 0.08)
+    return max(adj_min, min(adj_max, record_adj + streak_adj))
 
 
 def _calculate_h2h_adjustment(h2h: HeadToHeadSummary, team_name: str, _other_team: str, is_home: bool) -> float:
@@ -302,18 +534,16 @@ def _calculate_h2h_adjustment(h2h: HeadToHeadSummary, team_name: str, _other_tea
         # Split evenly
         return 0.0
     
-    # Win rate differential
     if h2h.total_games >= 2:
         win_rate = team_wins / h2h.total_games
-        h2h_adj = (win_rate - 0.5) * 0.1  # -0.05 to +0.05
+        h2h_adj = (win_rate - 0.5) * _h2h_cfg.get("win_rate_scale", 0.1)
     else:
         h2h_adj = 0.0
     
-    # Small bonus if last game winner & playing at home
     if h2h.last_winner and team_lower in h2h.last_winner.lower() and is_home:
-        h2h_adj += 0.01
+        h2h_adj += _h2h_cfg.get("last_winner_home_bonus", 0.01)
     
-    return max(-0.05, min(0.05, h2h_adj))
+    return max(_h2h_cfg.get("adjustment_min", -0.05), min(_h2h_cfg.get("adjustment_max", 0.05), h2h_adj))
 
 
 def _generate_reasoning(
@@ -347,23 +577,23 @@ def _generate_reasoning(
         List of reasoning strings
     """
     reasons = []
-    
-    # Strength comparison
+    edge_thresh = _edge_cfg.get("strong_edge_threshold", 5.0)
+    r = _reason_cfg
+
     strength_diff = (winner_score - loser_score) * 100
-    if strength_diff > 15:
+    if strength_diff > r.get("strength_diff_significant", 15):
         reasons.append(f"📊 {winner_name} has a significantly stronger overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
-    elif strength_diff > 8:
+    elif strength_diff > r.get("strength_diff_better", 8):
         reasons.append(f"📊 {winner_name} has a better overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
-    elif strength_diff > 3:
+    elif strength_diff > r.get("strength_diff_slight", 3):
         reasons.append(f"📊 {winner_name} has a slight edge in overall rating ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
     else:
         reasons.append(f"📊 Both teams are closely matched in strength ({winner_score*100:.0f}% vs {loser_score*100:.0f}%)")
-    
-    # Recent form / momentum
+
     if winner_form:
         winner_streak = winner_form.get("streak", 0)
         winner_last_10 = winner_form.get("last_10_record", "")
-        
+
         if winner_form.get("is_hot"):
             if winner_streak >= 5:
                 reasons.append(f"🔥 {winner_name} is ON FIRE with a {winner_streak}-game win streak!")
@@ -373,11 +603,11 @@ def _generate_reasoning(
                 reasons.append(f"📈 {winner_name} is playing well lately ({winner_last_10} in last 10)")
         elif winner_streak >= 2:
             reasons.append(f"✨ {winner_name} has won {winner_streak} straight games")
-    
+
     if loser_form:
         loser_streak = loser_form.get("streak", 0)
         loser_last_10 = loser_form.get("last_10_record", "")
-        
+
         if loser_form.get("is_cold"):
             if loser_streak <= -5:
                 reasons.append(f"❄️ {loser_name} is struggling badly with a {abs(loser_streak)}-game losing streak")
@@ -385,8 +615,7 @@ def _generate_reasoning(
                 reasons.append(f"📉 {loser_name} is cold with a {abs(loser_streak)}-game losing streak ({loser_last_10} in last 10)")
             else:
                 reasons.append(f"📉 {loser_name} has been struggling lately ({loser_last_10} in last 10)")
-    
-    # Head-to-head history
+
     if h2h and h2h.total_games > 0:
         winner_lower = winner_name.lower()
         if h2h.dominant_team and winner_lower in h2h.dominant_team.lower():
@@ -394,60 +623,57 @@ def _generate_reasoning(
                 winner_h2h_wins = h2h.team1_wins if h2h.team1_wins > h2h.team2_wins else h2h.team2_wins
                 reasons.append(f"🏆 {winner_name} owns the head-to-head ({winner_h2h_wins}-{h2h.total_games - winner_h2h_wins} in recent meetings)")
         elif h2h.dominant_team:
-            # Loser dominates H2H - worth noting as a contrarian pick
             reasons.append(f"⚠️ {loser_name} has the edge historically, but current form favors {winner_name}")
-        
+
         if h2h.last_winner:
             if winner_lower in h2h.last_winner.lower():
                 reasons.append(f"👊 {winner_name} won the last meeting between these teams")
-    
-    # Home court advantage
+
     if is_home:
-        reasons.append(f"🏠 {winner_name} has home court advantage (+3% boost)")
+        reasons.append(f"🏠 {winner_name} has home court advantage")
     else:
         reasons.append(f"✈️ {winner_name} playing on the road but still favored due to stronger stats")
-    
-    # Win probability context
-    if win_probability >= 0.70:
+
+    if win_probability >= r.get("win_prob_high", 0.70):
         reasons.append(f"💪 High confidence pick with {win_probability*100:.0f}% win probability")
-    elif win_probability >= 0.60:
+    elif win_probability >= r.get("win_prob_solid", 0.60):
         reasons.append(f"👍 Solid pick with {win_probability*100:.0f}% win probability")
-    elif win_probability >= 0.55:
+    elif win_probability >= r.get("win_prob_close", 0.55):
         reasons.append(f"🤔 Close matchup - {win_probability*100:.0f}% win probability")
     else:
         reasons.append(f"⚖️ Very close game - essentially a toss-up at {win_probability*100:.0f}%")
-    
-    # Vegas comparison if available
+
     if odds:
         if not odds.agreement:
             reasons.append(f"⚠️ We disagree with Vegas who favors {odds.vegas_favorite}")
             if odds.edge_score and odds.edge_score > 0:
                 reasons.append(f"💰 Potential value bet - {abs(odds.edge_score):.1f}% edge over Vegas")
-        elif odds.edge_score and odds.edge_score > 5:
+        elif odds.edge_score and odds.edge_score > edge_thresh:
             reasons.append(f"💰 We agree with Vegas but are MORE confident - {odds.edge_score:.1f}% edge")
         elif odds.vegas_favorite:
             reasons.append("✅ Our pick aligns with Vegas favorite")
-        
+
         if odds.spread is not None:
             spread_abs = abs(odds.spread)
-            if spread_abs > 10:
+            if spread_abs > r.get("spread_blowout", 10):
                 reasons.append(f"📈 Vegas expects a blowout ({spread_abs:.1f} point spread)")
-            elif spread_abs > 5:
+            elif spread_abs > r.get("spread_comfortable", 5):
                 reasons.append(f"📉 Vegas expects a comfortable win ({spread_abs:.1f} point spread)")
             else:
                 reasons.append(f"🎯 Vegas expects a close game ({spread_abs:.1f} point spread)")
-    
+
     return reasons
 
 
 def _get_confidence_label(probability: float) -> str:
     """Get confidence label from probability"""
+    conf = _reason_cfg
     diff = abs(probability - 0.5)
-    if diff >= 0.20:
+    if diff >= conf.get("confidence_high", 0.20):
         return "High"
-    elif diff >= 0.12:
+    elif diff >= conf.get("confidence_medium", 0.12):
         return "Medium"
-    elif diff >= 0.05:
+    elif diff >= conf.get("confidence_low", 0.05):
         return "Low"
     else:
         return "Toss-up"
@@ -530,9 +756,11 @@ def _parse_live_game_info(game_data: Dict[str, Any]) -> Optional[LiveGameInfo]:
     )
 
 
-def _sigmoid(x: float, steepness: float = 4.0) -> float:
+def _sigmoid(x: float, steepness: float | None = None) -> float:
     """Sigmoid function to convert score difference to probability"""
     import math
+    if steepness is None:
+        steepness = _games_cfg.get("sigmoid_steepness", 4.0)
     return 1.0 / (1.0 + math.exp(-steepness * x))
 
 
@@ -573,16 +801,15 @@ def _calculate_win_probability(
         home_games = hw + hl
         away_games = aw + al
 
-        if home_games >= 5 and away_games >= 5:
+        min_games = _hca_cfg.get("min_games", 5)
+        if home_games >= min_games and away_games >= min_games:
             home_wpct_at_home = hw / home_games
             away_wpct_on_road = aw / away_games
-            # Positive when the home team overperforms at home AND/OR
-            # the away team underperforms on the road.
-            hca = (home_wpct_at_home - away_wpct_on_road) * 0.06
-            hca = max(0.0, min(0.08, hca))
+            hca = (home_wpct_at_home - away_wpct_on_road) * _hca_cfg.get("data_driven_scale", 0.06)
+            hca = max(_hca_cfg.get("min", 0.0), min(_hca_cfg.get("max", 0.08), hca))
 
     adjusted_diff = (home_score + hca) - away_score
-    return _sigmoid(adjusted_diff, steepness=4.0)
+    return _sigmoid(adjusted_diff)
 
 
 def _moneyline_to_raw_implied_prob(moneyline: int) -> float:
@@ -691,7 +918,7 @@ def _parse_odds_comparison(
     edge = None
     if not agreement and spread is not None:
         edge = f"Our model picks {our_predicted_winner}, Vegas favors {vegas_favorite} by {abs(spread):.1f} pts"
-    elif edge_score is not None and edge_score > 5:
+    elif edge_score is not None and edge_score > _edge_cfg.get("strong_edge_threshold", 5.0):
         edge = f"Strong edge: Our model is {edge_score:.1f}% more confident than Vegas"
     
     return OddsComparison(
@@ -781,7 +1008,8 @@ async def get_todays_games(
             
             # Calculate win probability using sigmoid function with context-aware home court advantage
             home_win_prob = _calculate_win_probability(
-                home_score, away_score, home_advantage=0.03,
+                home_score, away_score,
+                home_advantage=_hca_cfg.get("default", 0.03),
                 home_form=home_form, away_form=away_form,
             )
             
@@ -934,7 +1162,8 @@ async def get_games_by_date(
             away_score = min(1.0, max(0.0, away_base_score + away_form_adj + away_h2h_adj))
             
             home_win_prob = _calculate_win_probability(
-                home_score, away_score, home_advantage=0.03,
+                home_score, away_score,
+                home_advantage=_hca_cfg.get("default", 0.03),
                 home_form=home_form, away_form=away_form,
             )
             
@@ -1056,131 +1285,30 @@ async def get_head_to_head(
     Returns historical matchups, win counts, and last meeting details.
     """
     try:
-        # Normalize team names
-        team1_lower = team1.lower()
-        team2_lower = team2.lower()
-        
         # Get team info from ESPN to get proper names and IDs
         team1_info = espn_provider.get_team(team1)
         team2_info = espn_provider.get_team(team2)
-        
-        team1_name = team1_info.get("name", team1) if team1_info else team1
-        team2_name = team2_info.get("name", team2) if team2_info else team2
-        team1_abbrev = team1_info.get("abbreviation", "").lower() if team1_info else ""
-        team2_abbrev = team2_info.get("abbreviation", "").lower() if team2_info else ""
-        
-        # Unfortunately ESPN doesn't have a direct head-to-head API
-        # We'll check multiple recent dates for games between these teams
-        # This is a workaround - in production you'd use a proper sports database
-        
-        games = []
-        team1_wins = 0
-        team2_wins = 0
-        
-        # Check recent dates (last 60 days) for matchups
-        from datetime import timedelta
-        current_date = datetime.now()
-        
-        for days_back in range(60):
-            check_date = current_date - timedelta(days=days_back)
-            date_str = check_date.strftime("%Y%m%d")
-            
-            try:
-                scoreboard = espn_provider.get_scoreboard(date=date_str)
-                
-                for event in scoreboard.get("events", []):
-                    competition = event.get("competitions", [{}])[0]
-                    competitors = competition.get("competitors", [])
-                    
-                    if len(competitors) < 2:
-                        continue
-                    
-                    home = next((c for c in competitors if c.get("homeAway") == "home"), competitors[0])
-                    away = next((c for c in competitors if c.get("homeAway") == "away"), competitors[1])
-                    
-                    home_name = home.get("team", {}).get("displayName", "").lower()
-                    away_name = away.get("team", {}).get("displayName", "").lower()
-                    home_abbrev = home.get("team", {}).get("abbreviation", "").lower()
-                    away_abbrev = away.get("team", {}).get("abbreviation", "").lower()
-                    
-                    # Check if this game involves both teams
-                    team1_in_game = (
-                        team1_lower in home_name or team1_lower in away_name or
-                        team1_abbrev == home_abbrev or team1_abbrev == away_abbrev
-                    )
-                    team2_in_game = (
-                        team2_lower in home_name or team2_lower in away_name or
-                        team2_abbrev == home_abbrev or team2_abbrev == away_abbrev
-                    )
-                    
-                    if team1_in_game and team2_in_game:
-                        # This is a matchup between the two teams
-                        status = event.get("status", {}).get("type", {}).get("name", "")
-                        
-                        # Only count completed games
-                        if status == "STATUS_FINAL":
-                            home_score = int(home.get("score", 0))
-                            away_score = int(away.get("score", 0))
-                            
-                            home_display = home.get("team", {}).get("displayName", "Unknown")
-                            away_display = away.get("team", {}).get("displayName", "Unknown")
-                            
-                            winner = home_display if home_score > away_score else away_display
-                            
-                            # Count wins
-                            if team1_lower in winner.lower() or team1_abbrev in winner.lower():
-                                team1_wins += 1
-                            else:
-                                team2_wins += 1
-                            
-                            games.append(HeadToHeadGame(
-                                game_id=event.get("id", ""),
-                                date=event.get("date", ""),
-                                season=event.get("season", {}).get("year"),
-                                home_team=home_display,
-                                away_team=away_display,
-                                home_score=home_score,
-                                away_score=away_score,
-                                winner=winner,
-                                venue=competition.get("venue", {}).get("fullName")
-                            ))
-                            
-                            if len(games) >= limit:
-                                break
-                
-                if len(games) >= limit:
-                    break
-                    
-            except (httpx.HTTPError, ValueError, KeyError) as e:
-                logger.debug("Error checking date %s: %s", date_str, e)
-                continue
-        
-        # Sort games by date (most recent first)
-        games.sort(key=lambda x: x.date, reverse=True)
-        
-        # Get last meeting
-        last_meeting = games[0] if games else None
-        
-        # Calculate home advantage stats
-        home_advantage = None
-        if games:
-            team1_home_wins = sum(1 for g in games if team1_lower in g.home_team.lower() and team1_lower in g.winner.lower())
-            team2_home_wins = sum(1 for g in games if team2_lower in g.home_team.lower() and team2_lower in g.winner.lower())
-            home_advantage = {
-                "team1_home_record": f"{team1_home_wins} wins at home",
-                "team2_home_record": f"{team2_home_wins} wins at home"
-            }
-        
-        return HeadToHeadResponse(
-            team1=team1_name,
-            team2=team2_name,
-            total_games=len(games),
-            team1_wins=team1_wins,
-            team2_wins=team2_wins,
-            games=games[:limit],
-            last_meeting=last_meeting,
-            home_advantage=home_advantage
-        )
+        team1_id = str(team1_info.get("id")) if team1_info and team1_info.get("id") is not None else None
+        team2_id = str(team2_info.get("id")) if team2_info and team2_info.get("id") is not None else None
+        cache_key = _build_h2h_cache_key(team1, team2, limit, team1_id, team2_id)
+
+        snapshot = _h2h_persistent_cache.get(cache_key)
+        if snapshot and isinstance(snapshot, dict) and snapshot.get("payload"):
+            if _snapshot_is_fresh(snapshot):
+                logger.info("H2H cache hit (fresh) for %s vs %s", team1, team2)
+            else:
+                logger.info("H2H cache hit (stale) for %s vs %s; serving stale and refreshing", team1, team2)
+                asyncio.create_task(_refresh_h2h_cache(cache_key, team1, team2, limit, team1_info, team2_info))
+            return HeadToHeadResponse(**snapshot["payload"])
+
+        logger.info("H2H cache miss for %s vs %s", team1, team2)
+        response = _compute_head_to_head(team1, team2, limit, team1_info, team2_info)
+        new_snapshot = {
+            "fetched_at": datetime.now().isoformat(),
+            "payload": response.model_dump(),
+        }
+        _h2h_persistent_cache.set(cache_key, new_snapshot, expire=_H2H_STALE_TTL)
+        return response
         
     except (httpx.HTTPError, ValueError, KeyError) as e:
         logger.error("Error fetching head-to-head: %s", e, exc_info=True)

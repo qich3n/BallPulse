@@ -1,0 +1,168 @@
+{
+  "_description": "BallPulse tunable configuration. Edit values here to fine-tune the prediction model without touching code.",
+
+  "scoring": {
+    "weights_with_win_pct": {
+      "_description": "Feature weights when season win% is available. Must sum to 1.0.",
+      "win_pct":     0.25,
+      "net_rating":  0.22,
+      "shooting":    0.18,
+      "assists":     0.12,
+      "rebounding":  0.12,
+      "turnovers":   0.11
+    },
+    "weights_no_win_pct": {
+      "_description": "Feature weights when season win% is NOT available. Must sum to 1.0.",
+      "net_rating":  0.28,
+      "shooting":    0.22,
+      "assists":     0.15,
+      "rebounding":  0.18,
+      "turnovers":   0.17
+    },
+
+    "normalize": {
+      "_description": "Min/max ranges for normalizing each stat to 0-1. Adjust if league averages shift.",
+      "shooting_pct":     { "min": 0.35,  "max": 0.55  },
+      "rebounding_avg":   { "min": 35.0,  "max": 50.0  },
+      "turnovers_avg":    { "min": 12.0,  "max": 18.0  },
+      "net_rating_proxy": { "min": -10.0, "max": 10.0  },
+      "assists_avg":      { "min": 20.0,  "max": 30.0  },
+      "win_pct":          { "min": 0.25,  "max": 0.75  }
+    },
+
+    "win_probability": {
+      "_description": "Sigmoid parameters for converting score difference → probability.",
+      "score_diff_scale": 2.0,
+      "sigmoid_steepness": 3.0
+    },
+
+    "sentiment": {
+      "_description": "Controls how Reddit sentiment tilts the team score.",
+      "tilt_max":    0.2,
+      "tilt_per_word": 0.05,
+      "positive_words": ["positive", "great", "excellent", "amazing", "fantastic", "strong", "good"],
+      "negative_words": ["negative", "poor", "bad", "terrible", "weak", "concerns", "worries"]
+    },
+
+    "sentiment_labels": {
+      "_description": "Compound score thresholds for sentiment display labels.",
+      "very_positive": 0.3,
+      "positive":      0.1,
+      "negative":     -0.1,
+      "very_negative": -0.3
+    },
+
+    "injuries": {
+      "_description": "How injuries penalize a team's score.",
+      "penalty_per_injury": -0.05,
+      "penalty_max":        -0.15,
+      "significant_keywords":  ["out", "injured", "surgery", "fracture", "torn"],
+      "questionable_keywords": ["questionable", "doubtful", "probable"]
+    },
+
+    "confidence": {
+      "_description": "Distance-from-0.5 thresholds for confidence labels.",
+      "high_threshold":     0.3,
+      "moderate_threshold": 0.15
+    },
+
+    "score_breakdown": {
+      "_description": "Predicted final score estimation parameters.",
+      "base_score":   110,
+      "margin_scale": 20
+    }
+  },
+
+  "games": {
+    "sigmoid_steepness": 4.0,
+
+    "home_advantage": {
+      "_description": "Home court advantage parameters.",
+      "default":           0.03,
+      "data_driven_scale": 0.06,
+      "min":               0.0,
+      "max":               0.08,
+      "min_games":         5
+    },
+
+    "form": {
+      "_description": "How recent form (streaks, last-10 record) adjusts team scores.",
+      "record_adj_per_game": 0.01,
+      "streak_thresholds": {
+        "hot_5":  0.03,
+        "hot_3":  0.015,
+        "cold_5": -0.03,
+        "cold_3": -0.015
+      },
+      "adjustment_min": -0.08,
+      "adjustment_max":  0.08,
+      "hot_streak_threshold":  4,
+      "cold_streak_threshold": -4
+    },
+
+    "h2h": {
+      "_description": "Head-to-head history adjustment parameters.",
+      "win_rate_scale":       0.1,
+      "last_winner_home_bonus": 0.01,
+      "adjustment_min": -0.05,
+      "adjustment_max":  0.05
+    },
+
+    "edge": {
+      "_description": "Edge detection thresholds (percentage points).",
+      "strong_edge_threshold": 5.0
+    },
+
+    "reasoning": {
+      "_description": "Thresholds used when generating reasoning text and confidence labels.",
+      "strength_diff_significant": 15,
+      "strength_diff_better":       8,
+      "strength_diff_slight":       3,
+      "win_prob_high":    0.70,
+      "win_prob_solid":   0.60,
+      "win_prob_close":   0.55,
+      "spread_blowout":   10,
+      "spread_comfortable": 5,
+      "confidence_high":   0.20,
+      "confidence_medium": 0.12,
+      "confidence_low":    0.05
+    }
+  },
+
+  "cache": {
+    "_description": "Cache time-to-live in seconds.",
+    "team_score_ttl": 1800,
+    "team_form_ttl":  1800,
+    "h2h_ttl":        3600,
+    "h2h_stale_ttl":  21600,
+    "h2h_refresh_lock_ttl": 30,
+    "h2h_scan_days":  120,
+    "h2h_cache_dir": ".cache/h2h"
+  },
+
+  "api": {
+    "nba": {
+      "timeout":       8,
+      "max_retries":   1,
+      "retry_backoff": 1,
+      "request_delay": 0.6
+    },
+    "espn": {
+      "default_timeout": 10.0,
+      "news_default_limit": 25
+    },
+    "game_detail_timeout": 10.0
+  },
+
+  "fallback_stats": {
+    "_description": "Default values used when API data is unavailable.",
+    "shooting_pct":     0.450,
+    "rebounding_avg":   42.0,
+    "turnovers_avg":    14.0,
+    "net_rating_proxy":  0.0,
+    "assists_avg":      24.0,
+    "win_pct":           0.0,
+    "pts_baseline":    108.0,
+    "last_10_games":    10
+  }
+}
