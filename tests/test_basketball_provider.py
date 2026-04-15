@@ -76,20 +76,21 @@ def test_get_team_stats_summary_success(provider, mock_team_data, mock_game_log_
     mock_gamelog = MagicMock()
     mock_gamelog.get_data_frames.return_value = [mock_game_log_data]
     
-    with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
-        with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
-            stats = provider.get_team_stats_summary("Los Angeles Lakers")
-            
-            assert stats['team_name'] == "Los Angeles Lakers"
-            assert stats['data_source'] == "nba_api"
-            assert stats['last_10_games'] == 10
-            assert isinstance(stats['shooting_pct'], float)
-            assert isinstance(stats['rebounding_avg'], float)
-            assert isinstance(stats['turnovers_avg'], float)
-            assert isinstance(stats['net_rating_proxy'], float)
-            assert 0.0 <= stats['shooting_pct'] <= 1.0
-            assert stats['rebounding_avg'] > 0
-            assert stats['turnovers_avg'] > 0
+    with patch('src.app.providers.espn_provider.ESPNProvider.get_team_stats_summary', return_value=None):
+        with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
+            with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
+                stats = provider.get_team_stats_summary("Los Angeles Lakers")
+                
+                assert stats['team_name'] == "Los Angeles Lakers"
+                assert stats['data_source'] == "nba_api"
+                assert stats['last_10_games'] == 10
+                assert isinstance(stats['shooting_pct'], float)
+                assert isinstance(stats['rebounding_avg'], float)
+                assert isinstance(stats['turnovers_avg'], float)
+                assert isinstance(stats['net_rating_proxy'], float)
+                assert 0.0 <= stats['shooting_pct'] <= 1.0
+                assert stats['rebounding_avg'] > 0
+                assert stats['turnovers_avg'] > 0
 
 
 def test_get_team_stats_summary_team_not_found(provider, mock_team_data):
@@ -108,15 +109,16 @@ def test_get_team_stats_summary_team_not_found(provider, mock_team_data):
 def test_get_team_stats_summary_api_error(provider, mock_team_data):
     """Test stats fetching when API call fails (should return placeholder)"""
     # Mock TeamGameLog to raise an exception
-    with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
-        with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', side_effect=Exception("API Error")):
-            stats = provider.get_team_stats_summary("Los Angeles Lakers")
-            
-            assert stats['team_name'] == "Los Angeles Lakers"
-            assert stats['data_source'] == "placeholder"
-            assert stats['shooting_pct'] == 0.450
-            assert stats['rebounding_avg'] == 42.0
-            assert stats['turnovers_avg'] == 14.0
+    with patch('src.app.providers.espn_provider.ESPNProvider.get_team_stats_summary', return_value=None):
+        with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
+            with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', side_effect=Exception("API Error")):
+                stats = provider.get_team_stats_summary("Los Angeles Lakers")
+                
+                assert stats['team_name'] == "Los Angeles Lakers"
+                assert stats['data_source'] == "placeholder"
+                assert stats['shooting_pct'] == 0.450
+                assert stats['rebounding_avg'] == 42.0
+                assert stats['turnovers_avg'] == 14.0
 
 
 def test_get_team_stats_summary_empty_games(provider, mock_team_data):
@@ -124,12 +126,13 @@ def test_get_team_stats_summary_empty_games(provider, mock_team_data):
     mock_gamelog = MagicMock()
     mock_gamelog.get_data_frames.return_value = [pd.DataFrame()]  # Empty DataFrame
     
-    with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
-        with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
-            stats = provider.get_team_stats_summary("Los Angeles Lakers")
-            
-            assert stats['team_name'] == "Los Angeles Lakers"
-            assert stats['data_source'] == "placeholder"
+    with patch('src.app.providers.espn_provider.ESPNProvider.get_team_stats_summary', return_value=None):
+        with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
+            with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
+                stats = provider.get_team_stats_summary("Los Angeles Lakers")
+                
+                assert stats['team_name'] == "Los Angeles Lakers"
+                assert stats['data_source'] == "placeholder"
 
 
 def test_get_team_stats_summary_missing_columns(provider, mock_team_data):
@@ -143,14 +146,15 @@ def test_get_team_stats_summary_missing_columns(provider, mock_team_data):
     mock_gamelog = MagicMock()
     mock_gamelog.get_data_frames.return_value = [minimal_df]
     
-    with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
-        with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
-            stats = provider.get_team_stats_summary("Los Angeles Lakers")
-            
-            # Should still return stats with defaults for missing columns
-            assert stats['data_source'] == "nba_api"
-            assert stats['rebounding_avg'] == 42.0  # Default value
-            assert stats['turnovers_avg'] == 14.0  # Default value
+    with patch('src.app.providers.espn_provider.ESPNProvider.get_team_stats_summary', return_value=None):
+        with patch('src.app.providers.basketball_provider.teams.get_teams', return_value=mock_team_data):
+            with patch('src.app.providers.basketball_provider.teamgamelog.TeamGameLog', return_value=mock_gamelog):
+                stats = provider.get_team_stats_summary("Los Angeles Lakers")
+                
+                # Should still return stats with defaults for missing columns
+                assert stats['data_source'] == "nba_api"
+                assert stats['rebounding_avg'] == 42.0  # Default value
+                assert stats['turnovers_avg'] == 14.0  # Default value
 
 
 def test_get_placeholder_stats(provider):

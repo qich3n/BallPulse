@@ -130,7 +130,7 @@ class RedditService:
             response = self.session.get(url, timeout=self.timeout)
             response.raise_for_status()
             return response.json()
-        except requests.exceptions.RequestException as e:
+        except (requests.exceptions.RequestException, ValueError) as e:
             self.logger.error(f"Error fetching Reddit JSON endpoint {url}: {e}")
             return None
     

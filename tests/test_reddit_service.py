@@ -123,7 +123,8 @@ def test_fetch_json_endpoint_success(reddit_service, mock_reddit_json_response):
 def test_fetch_json_endpoint_failure(reddit_service):
     """Test JSON endpoint fetch failure"""
     with patch.object(reddit_service.session, 'get') as mock_get:
-        mock_get.side_effect = Exception("Network error")
+        import requests
+        mock_get.side_effect = requests.exceptions.RequestException("Network error")
         
         result = reddit_service._fetch_json_endpoint("https://www.reddit.com/r/nba/new.json")
         
