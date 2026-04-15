@@ -5,12 +5,13 @@ from nba_api.stats.endpoints import teamgamelog, teamdashboardbygeneralsplits
 from nba_api.stats.static import teams
 from nba_api.stats.library.parameters import SeasonAll
 from requests.exceptions import ReadTimeout, ConnectionError as RequestsConnectionError
+from ..config import cfg
 
 logger = logging.getLogger(__name__)
 
-# Browser-like headers required for stats.nba.com to accept requests from
-# cloud/datacenter IPs (e.g. Render, Heroku). Without these, the NBA API
-# returns a timeout or connection refused from non-residential IPs.
+_api_cfg = cfg.get("api", {}).get("nba", {})
+_fb = cfg.get("fallback_stats", {})
+
 NBA_API_HEADERS = {
     "Host": "stats.nba.com",
     "User-Agent": (
@@ -30,12 +31,9 @@ NBA_API_HEADERS = {
     "Cache-Control": "no-cache",
 }
 
-# stats.nba.com blocks cloud/datacenter IPs (Render, Heroku, AWS, etc.).
-# Keep timeout short so requests fail fast and fall back to placeholder data
-# instead of hanging the server for several minutes.
-NBA_API_TIMEOUT = 8  # seconds — fail fast on Render
-NBA_API_MAX_RETRIES = 1  # no retries; cloud IPs are blocked, not flaky
-NBA_API_RETRY_BACKOFF = 1  # seconds base delay between retries
+NBA_API_TIMEOUT = _api_cfg.get("timeout", 8)
+NBA_API_MAX_RETRIES = _api_cfg.get("max_retries", 1)
+NBA_API_RETRY_BACKOFF = _api_cfg.get("retry_backoff", 1)
 
 # Team name aliases for ESPN -> NBA API mapping
 TEAM_NAME_ALIASES = {
@@ -140,7 +138,7 @@ class BasketballProvider:
         last_exc = None
         for attempt in range(1, NBA_API_MAX_RETRIES + 1):
             try:
-                time.sleep(0.6)
+                time.sleep(_api_cfg.get("request_delay", 0.6))
                 return teamgamelog.TeamGameLog(
                     team_id=team_id,
                     season=season,
@@ -172,7 +170,7 @@ class BasketballProvider:
         last_exc = None
         for attempt in range(1, NBA_API_MAX_RETRIES + 1):
             try:
-                time.sleep(0.6)
+                time.sleep(_api_cfg.get("request_delay", 0.6))
                 return teamdashboardbygeneralsplits.TeamDashboardByGeneralSplits(
                     team_id=team_id,
                     season=season,
@@ -201,13 +199,13 @@ class BasketballProvider:
             Dictionary with placeholder stats
         """
         return {
-            "last_10_games": 10,
-            "shooting_pct": 0.450,
-            "rebounding_avg": 42.0,
-            "turnovers_avg": 14.0,
-            "net_rating_proxy": 0.0,
-            "assists_avg": 24.0,
-            "win_pct": 0.0,
+            "last_10_games": _fb.get("last_10_games", 10),
+            "shooting_pct": _fb.get("shooting_pct", 0.450),
+            "rebounding_avg": _fb.get("rebounding_avg", 42.0),
+            "turnovers_avg": _fb.get("turnovers_avg", 14.0),
+            "net_rating_proxy": _fb.get("net_rating_proxy", 0.0),
+            "assists_avg": _fb.get("assists_avg", 24.0),
+            "win_pct": _fb.get("win_pct", 0.0),
             "team_name": team_name,
             "data_source": "placeholder"
         }
@@ -235,8 +233,10 @@ class BasketballProvider:
             # _teams_list persist across repeated calls (avoids refetching
             # the full team list for every team).
             if self._espn_provider is None:
+                _espn_cfg = cfg.get("api", {}).get("espn", {})
                 self._espn_provider = ESPNProvider(
-                    sport=Sport.BASKETBALL, league=League.NBA, timeout=10.0
+                    sport=Sport.BASKETBALL, league=League.NBA,
+                    timeout=_espn_cfg.get("default_timeout", 10.0)
                 )
             espn = self._espn_provider
             espn_stats = espn.get_team_stats_summary(team_name)
@@ -300,14 +300,14 @@ class BasketballProvider:
             recent = games_df.head(10)
             num_games = len(recent)
 
-            shooting_pct = float(recent["FG_PCT"].mean()) if "FG_PCT" in recent.columns else 0.450
-            rebounding_avg = float(recent["REB"].mean()) if "REB" in recent.columns else 42.0
-            turnovers_avg = float(recent["TOV"].mean()) if "TOV" in recent.columns else 14.0
-            assists_avg = float(recent["AST"].mean()) if "AST" in recent.columns else 24.0
+            shooting_pct = float(recent["FG_PCT"].mean()) if "FG_PCT" in recent.columns else _fb.get("shooting_pct", 0.450)
+            rebounding_avg = float(recent["REB"].mean()) if "REB" in recent.columns else _fb.get("rebounding_avg", 42.0)
+            turnovers_avg = float(recent["TOV"].mean()) if "TOV" in recent.columns else _fb.get("turnovers_avg", 14.0)
+            assists_avg = float(recent["AST"].mean()) if "AST" in recent.columns else _fb.get("assists_avg", 24.0)
             if "PLUS_MINUS" in recent.columns:
                 net_rating_proxy = float(recent["PLUS_MINUS"].mean())
             elif "PTS" in recent.columns:
-                net_rating_proxy = float(recent["PTS"].mean()) - 108.0
+                net_rating_proxy = float(recent["PTS"].mean()) - _fb.get("pts_baseline", 108.0)
             else:
                 net_rating_proxy = 0.0
 

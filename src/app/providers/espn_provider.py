@@ -18,8 +18,12 @@ import httpx
 from typing import Dict, Any, Optional, List
 from enum import Enum
 from datetime import datetime
+from ..config import cfg
 
 logger = logging.getLogger(__name__)
+
+_espn_api_cfg = cfg.get("api", {}).get("espn", {})
+_fb = cfg.get("fallback_stats", {})
 
 
 class Sport(Enum):
@@ -469,7 +473,7 @@ class ESPNProvider:
             raw.get("avgFieldGoalPct")
             or raw.get("fieldGoalPct")
             or raw.get("shootingEfficiency")
-            or 0.450
+            or _fb.get("shooting_pct", 0.450)
         )
         if fg_pct and fg_pct > 1.0:
             fg_pct = fg_pct / 100.0
@@ -478,14 +482,14 @@ class ESPNProvider:
             raw.get("avgRebounds")
             or raw.get("reboundsPerGame")
             or raw.get("rebounds")
-            or 42.0
+            or _fb.get("rebounding_avg", 42.0)
         )
 
         turnovers = (
             raw.get("avgTurnovers")
             or raw.get("turnoversPerGame")
             or raw.get("turnovers")
-            or 14.0
+            or _fb.get("turnovers_avg", 14.0)
         )
 
         plus_minus = (
@@ -493,14 +497,14 @@ class ESPNProvider:
             or raw.get("plusMinusRating")
             or raw.get("avgPointDifferential")
             or raw.get("pointDifferential")
-            or 0.0
+            or _fb.get("net_rating_proxy", 0.0)
         )
 
         assists = (
             raw.get("avgAssists")
             or raw.get("assistsPerGame")
             or raw.get("assists")
-            or 24.0
+            or _fb.get("assists_avg", 24.0)
         )
 
         win_pct = raw.get("winPercent", 0)
