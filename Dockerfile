@@ -38,6 +38,7 @@ RUN pip install --upgrade pip && \
 # Copy application code
 COPY src ./src
 COPY static ./static
+COPY config.json ./config.json
 COPY clear_cache.py ./clear_cache.py
 COPY pytest.ini ./pytest.ini
 

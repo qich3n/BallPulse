@@ -131,6 +131,8 @@
 
   "cache": {
     "_description": "Cache time-to-live in seconds.",
+    "backend": "disk",
+    "redis_url": "",
     "team_score_ttl": 1800,
     "team_form_ttl":  1800,
     "h2h_ttl":        3600,

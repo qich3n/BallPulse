@@ -14,6 +14,7 @@ Use responsibly and respect ESPN's terms of service.
 """
 
 import logging
+import asyncio
 import httpx
 from typing import Dict, Any, Optional, List
 from enum import Enum
@@ -171,6 +172,10 @@ class ESPNProvider:
             return {"events": [], "error": "Failed to fetch scoreboard"}
         
         return data
+
+    async def get_scoreboard_async(self, date: Optional[str] = None) -> Dict[str, Any]:
+        """Async wrapper to avoid blocking event loop on sync HTTP path."""
+        return await asyncio.to_thread(self.get_scoreboard, date)
     
     def get_today_scores(self) -> List[Dict[str, Any]]:
         """
@@ -228,6 +233,10 @@ class ESPNProvider:
                 games.append(game)
         
         return games
+
+    async def get_today_scores_async(self) -> List[Dict[str, Any]]:
+        """Async wrapper to avoid blocking event loop on sync HTTP path."""
+        return await asyncio.to_thread(self.get_today_scores)
     
     def get_broadcast(self, competition: Dict) -> str:
         """Extract broadcast info from competition"""
@@ -335,6 +344,10 @@ class ESPNProvider:
                         return team_data
         
         return None
+
+    async def get_team_async(self, team_identifier: str) -> Optional[Dict[str, Any]]:
+        """Async wrapper to avoid blocking event loop on sync HTTP path."""
+        return await asyncio.to_thread(self.get_team, team_identifier)
     
     def _parse_team_response(self, data: Dict) -> Dict[str, Any]:
         """Parse the team API response into a clean format"""
