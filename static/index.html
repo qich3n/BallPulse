@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BallPulse - AI Matchup Predictor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400..800;1,400..800&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -67,7 +70,7 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Helvetica Neue', sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
@@ -2614,35 +2617,82 @@
 
         .dashboard-shell {
             display: grid;
-            gap: 20px;
+            gap: 24px;
         }
 
         .dashboard-hero {
-            background: linear-gradient(140deg, var(--bg-card), var(--bg-tertiary));
+            position: relative;
+            overflow: hidden;
+            border-radius: 20px;
             border: 1px solid var(--border);
-            border-radius: 14px;
-            padding: 24px;
-            display: flex;
-            justify-content: space-between;
+            padding: clamp(20px, 4vw, 32px);
+            display: grid;
+            grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.95fr);
+            gap: clamp(18px, 3vw, 36px);
             align-items: center;
-            gap: 18px;
-            flex-wrap: wrap;
+            background:
+                radial-gradient(1200px 400px at 10% -20%, rgba(59, 130, 246, 0.18), transparent 55%),
+                radial-gradient(800px 320px at 90% 120%, rgba(6, 182, 212, 0.14), transparent 50%),
+                linear-gradient(155deg, var(--bg-secondary) 0%, var(--bg-card) 48%, var(--bg-tertiary) 100%);
+            box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        }
+
+        .dashboard-hero::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1400&q=80') right center / cover no-repeat;
+            opacity: 0.12;
+            pointer-events: none;
+            mask-image: linear-gradient(105deg, black 35%, transparent 78%);
+            -webkit-mask-image: linear-gradient(105deg, black 35%, transparent 78%);
+        }
+
+        [data-theme="light"] .dashboard-hero::before {
+            opacity: 0.09;
+        }
+
+        .dashboard-hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .dashboard-hero-kicker {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            margin-bottom: 10px;
+        }
+
+        .dashboard-hero-kicker span {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
         }
 
         .dashboard-hero-title {
-            font-size: 30px;
-            line-height: 1.15;
-            font-weight: 750;
-            letter-spacing: -0.4px;
+            font-size: clamp(26px, 3.2vw, 36px);
+            line-height: 1.12;
+            font-weight: 800;
+            letter-spacing: -0.5px;
             color: var(--text-primary);
-            margin-bottom: 8px;
+            margin-bottom: 10px;
+            max-width: 22ch;
         }
 
         .dashboard-hero-subtitle {
             color: var(--text-secondary);
-            font-size: 14px;
-            max-width: 700px;
-            line-height: 1.6;
+            font-size: 15px;
+            max-width: 36rem;
+            line-height: 1.65;
         }
 
         .dashboard-hero-tags {
@@ -2650,38 +2700,224 @@
             gap: 10px;
             align-items: center;
             flex-wrap: wrap;
-            margin-top: 14px;
+            margin-top: 18px;
         }
 
         .dashboard-tag {
             font-size: 12px;
+            font-weight: 600;
             color: var(--text-secondary);
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+            background: rgba(59, 130, 246, 0.08);
+            border: 1px solid rgba(59, 130, 246, 0.22);
             border-radius: 999px;
-            padding: 6px 10px;
+            padding: 7px 12px;
             white-space: nowrap;
+            backdrop-filter: blur(8px);
+        }
+
+        [data-theme="light"] .dashboard-tag {
+            background: rgba(37, 99, 235, 0.06);
+            border-color: rgba(37, 99, 235, 0.18);
+        }
+
+        .dashboard-hero-visual {
+            position: relative;
+            z-index: 1;
+            display: grid;
+            gap: 12px;
+        }
+
+        .dashboard-hero-main-img {
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+            aspect-ratio: 16 / 10;
+            box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+        }
+
+        .dashboard-hero-main-img img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transform: scale(1.02);
+            transition: transform 0.6s ease;
+        }
+
+        .dashboard-hero:hover .dashboard-hero-main-img img {
+            transform: scale(1.06);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dashboard-hero:hover .dashboard-hero-main-img img {
+                transform: scale(1.02);
+            }
+        }
+
+        .dashboard-hero-thumbs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        .dashboard-hero-thumbs button {
+            padding: 0;
+            border: none;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            aspect-ratio: 4 / 3;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            background: var(--bg-tertiary);
+        }
+
+        .dashboard-hero-thumbs button:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary-light);
+            box-shadow: var(--shadow-md);
+        }
+
+        .dashboard-hero-thumbs button:focus-visible {
+            outline: 2px solid var(--primary);
+            outline-offset: 2px;
+        }
+
+        .dashboard-hero-thumbs img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .dashboard-visual-strip {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .dashboard-visual-strip figure {
+            position: relative;
+            margin: 0;
+            aspect-ratio: 21 / 9;
+            overflow: hidden;
+            min-height: 72px;
+        }
+
+        .dashboard-visual-strip img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            transition: transform 0.5s ease;
+        }
+
+        .dashboard-visual-strip figure:hover img {
+            transform: scale(1.05);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .dashboard-visual-strip figure:hover img {
+                transform: none;
+            }
+        }
+
+        .dashboard-visual-strip figcaption {
+            position: absolute;
+            left: 10px;
+            bottom: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            color: #fff;
+            text-shadow: 0 1px 8px rgba(0, 0, 0, 0.75);
+            pointer-events: none;
         }
 
         .dashboard-insights {
             display: grid;
             grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 14px;
+            gap: 16px;
         }
 
         .insight-card {
-            border-radius: 12px;
+            position: relative;
+            border-radius: 16px;
             border: 1px solid var(--border);
             background: var(--bg-card);
-            padding: 14px 16px;
-            min-height: 92px;
+            padding: 16px 16px 16px 18px;
+            min-height: 108px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             gap: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .insight-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 12px;
+            bottom: 12px;
+            width: 3px;
+            border-radius: 0 4px 4px 0;
+            background: linear-gradient(180deg, var(--primary), var(--accent));
+            opacity: 0.9;
+        }
+
+        .insight-card::after {
+            content: '';
+            position: absolute;
+            right: -12px;
+            top: -12px;
+            width: 96px;
+            height: 96px;
+            border-radius: 50%;
+            opacity: 0.14;
+            pointer-events: none;
+            background: center / cover no-repeat;
+        }
+
+        .insight-card:nth-child(1)::after {
+            background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=200&q=70');
+        }
+
+        .insight-card:nth-child(2)::after {
+            background-image: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&crop=left&w=200&q=70');
+        }
+
+        .insight-card:nth-child(3)::after {
+            background-image: url('https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=200&q=70');
+        }
+
+        .insight-card:nth-child(4)::after {
+            background-image: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&crop=right&w=200&q=70');
+        }
+
+        .insight-card:hover {
+            border-color: var(--border-light);
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .insight-card:hover {
+                transform: none;
+            }
         }
 
         .insight-label {
+            position: relative;
+            z-index: 1;
             font-size: 12px;
             color: var(--text-muted);
             text-transform: uppercase;
@@ -2689,6 +2925,8 @@
         }
 
         .insight-value {
+            position: relative;
+            z-index: 1;
             font-size: 24px;
             font-weight: 700;
             color: var(--text-primary);
@@ -2696,44 +2934,129 @@
         }
 
         .insight-note {
+            position: relative;
+            z-index: 1;
             font-size: 12px;
             color: var(--text-secondary);
         }
 
         .dashboard-panel {
-            border-radius: 12px;
+            position: relative;
+            border-radius: 20px;
             border: 1px solid var(--border);
-            background: var(--bg-card);
-            padding: 10px;
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-secondary) 100%);
+            padding: 12px;
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+        }
+
+        .dashboard-panel::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=60') right center / cover no-repeat;
+            opacity: 0.06;
+            pointer-events: none;
+            mask-image: linear-gradient(90deg, black 55%, transparent 100%);
+            -webkit-mask-image: linear-gradient(90deg, black 55%, transparent 100%);
+        }
+
+        [data-theme="light"] .dashboard-panel::before {
+            opacity: 0.05;
         }
 
         .dashboard-panel .form-card {
+            position: relative;
+            z-index: 1;
             margin-bottom: 0;
             border: none;
             box-shadow: none;
             background: transparent;
-            padding: 16px;
+            padding: 20px 22px;
         }
 
         .dashboard-result-placeholder {
-            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 18px;
             border: 1px dashed var(--border-light);
             background: var(--bg-card);
-            padding: 24px;
+            padding: 32px 24px 28px;
             text-align: center;
             color: var(--text-secondary);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .dashboard-result-placeholder::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=70') center / cover no-repeat;
+            opacity: 0.09;
+            pointer-events: none;
+        }
+
+        [data-theme="light"] .dashboard-result-placeholder::before {
+            opacity: 0.06;
+        }
+
+        .dashboard-result-placeholder-inner {
+            position: relative;
+            z-index: 1;
+            max-width: 420px;
+            margin: 0 auto;
+        }
+
+        .dashboard-result-placeholder-visual {
+            width: 100%;
+            max-width: 280px;
+            margin: 0 auto 16px;
+            border-radius: 14px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-md);
+            aspect-ratio: 16 / 9;
+        }
+
+        .dashboard-result-placeholder-visual img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .dashboard-result-placeholder-title {
-            font-size: 16px;
-            font-weight: 600;
+            font-size: 17px;
+            font-weight: 700;
             margin-bottom: 8px;
             color: var(--text-primary);
+            letter-spacing: -0.2px;
         }
 
         @media (max-width: 1100px) {
             .dashboard-insights {
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .dashboard-visual-strip {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .dashboard-visual-strip figure {
+                aspect-ratio: 16 / 10;
+            }
+        }
+
+        @media (max-width: 960px) {
+            .dashboard-hero {
+                grid-template-columns: 1fr;
+            }
+            .dashboard-hero::before {
+                mask-image: linear-gradient(180deg, black 45%, transparent 100%);
+                -webkit-mask-image: linear-gradient(180deg, black 45%, transparent 100%);
+            }
+            .dashboard-hero-visual {
+                max-width: 520px;
+                margin: 0 auto;
+                width: 100%;
             }
         }
 
@@ -2742,13 +3065,16 @@
                 padding: 18px;
             }
             .dashboard-hero-title {
-                font-size: 24px;
+                max-width: none;
             }
             .dashboard-insights {
                 grid-template-columns: 1fr;
             }
             .dashboard-panel .form-card {
-                padding: 10px;
+                padding: 14px;
+            }
+            .dashboard-visual-strip {
+                grid-template-columns: 1fr 1fr;
             }
         }
     </style>
@@ -2857,17 +3183,53 @@
         <div class="page-container active" id="dashboardPage">
             <div class="dashboard-shell">
                 <div class="dashboard-hero">
-                    <div>
-                        <div class="dashboard-hero-title">Modern NBA Matchup Intelligence</div>
+                    <div class="dashboard-hero-content">
+                        <div class="dashboard-hero-kicker"><span></span> Matchup lab</div>
+                        <div class="dashboard-hero-title">NBA matchup intelligence, visualized</div>
                         <div class="dashboard-hero-subtitle">
-                            Compare any two teams instantly using stats, context, and sentiment. Built for clarity with fast reads, clean predictions, and actionable confidence.
+                            Compare any two teams instantly with stats, context, and sentiment. Fast reads, clear predictions, and confidence you can trust—without the clutter.
                         </div>
                         <div class="dashboard-hero-tags">
-                            <span class="dashboard-tag">Live API Pipeline</span>
-                            <span class="dashboard-tag">Minimal UI</span>
-                            <span class="dashboard-tag">Prediction Confidence</span>
+                            <span class="dashboard-tag">Live data pipeline</span>
+                            <span class="dashboard-tag">Sentiment-aware</span>
+                            <span class="dashboard-tag">Confidence scoring</span>
                         </div>
                     </div>
+                    <div class="dashboard-hero-visual">
+                        <div class="dashboard-hero-main-img">
+                            <img id="dashboardHeroMainImg" src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;w=900&amp;q=82" alt="" width="900" height="563" fetchpriority="high" decoding="async">
+                        </div>
+                        <div class="dashboard-hero-thumbs">
+                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Arena spotlight">
+                                <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=320&amp;q=75" alt="">
+                            </button>
+                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Court texture">
+                                <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=left&amp;w=320&amp;q=75" alt="">
+                            </button>
+                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Game energy">
+                                <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=320&amp;q=75" alt="">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-visual-strip" role="presentation">
+                    <figure>
+                        <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=top&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <figcaption>Courtside</figcaption>
+                    </figure>
+                    <figure>
+                        <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <figcaption>Arena</figcaption>
+                    </figure>
+                    <figure>
+                        <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <figcaption>Hoops</figcaption>
+                    </figure>
+                    <figure>
+                        <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=bottom&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <figcaption>Floor</figcaption>
+                    </figure>
                 </div>
 
                 <div class="dashboard-insights">
@@ -2946,8 +3308,13 @@
                 </div>
 
                 <div id="dashboardEmptyState" class="dashboard-result-placeholder">
-                    <div class="dashboard-result-placeholder-title">Start by comparing two teams</div>
-                    <p>Your modern analysis dashboard will populate here with projected winner, confidence level, and matchup breakdown.</p>
+                    <div class="dashboard-result-placeholder-inner">
+                        <div class="dashboard-result-placeholder-visual">
+                            <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=640&amp;q=80" alt="" width="640" height="360" loading="lazy" decoding="async">
+                        </div>
+                        <div class="dashboard-result-placeholder-title">Start by comparing two teams</div>
+                        <p>Your analysis will appear here with projected winner, confidence, and a full matchup breakdown.</p>
+                    </div>
                 </div>
 
                 <!-- Results Container -->
@@ -3164,6 +3531,18 @@
         (function() {
             const theme = getPreferredTheme();
             setTheme(theme);
+        })();
+
+        (function initDashboardHeroThumbs() {
+            const main = document.getElementById('dashboardHeroMainImg');
+            const row = document.querySelector('.dashboard-hero-thumbs');
+            if (!main || !row) return;
+            row.addEventListener('click', (e) => {
+                const btn = e.target.closest('button[data-hero-src]');
+                if (!btn) return;
+                const src = btn.getAttribute('data-hero-src');
+                if (src) main.src = src;
+            });
         })();
 
         // Listen for system theme changes
