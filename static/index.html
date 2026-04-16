@@ -92,6 +92,13 @@
             height: 100vh;
             overflow-y: auto;
             box-shadow: inset -1px 0 0 var(--border);
+            transform: translateX(-100%);
+            transition: transform 0.28s ease;
+            z-index: 999;
+        }
+
+        .sidebar.open {
+            transform: translateX(0);
         }
 
         .logo {
@@ -221,7 +228,7 @@
         /* Main Content */
         .main-content {
             flex: 1;
-            margin-left: 280px;
+            margin-left: 0;
             padding: 32px;
             min-height: 100vh;
         }
@@ -295,9 +302,9 @@
             margin-bottom: 24px;
         }
 
-        /* Mobile menu toggle - hidden on desktop */
+        /* Sidebar drawer toggle */
         .menu-toggle {
-            display: none;
+            display: flex;
             align-items: center;
             justify-content: center;
             width: 44px;
@@ -331,21 +338,21 @@
             transition: opacity 0.3s ease;
         }
 
+        body.sidebar-open {
+            overflow: hidden;
+        }
+
+        .sidebar-overlay.visible {
+            display: block;
+            opacity: 1;
+        }
+
         @media (max-width: 768px) {
             .form-grid {
                 grid-template-columns: 1fr;
             }
-            .menu-toggle {
-                display: flex;
-            }
             .sidebar {
-                transform: translateX(-100%);
-                transition: transform 0.3s ease;
-                z-index: 999;
                 box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
-            }
-            .sidebar.open {
-                transform: translateX(0);
             }
             .header-bar {
                 gap: 12px;
@@ -359,13 +366,6 @@
             .main-content {
                 margin-left: 0;
                 padding: 16px;
-            }
-            body.sidebar-open {
-                overflow: hidden;
-            }
-            .sidebar-overlay.visible {
-                display: block;
-                opacity: 1;
             }
         }
 
@@ -2896,7 +2896,7 @@
         }
 
         .insight-card:nth-child(3)::after {
-            background-image: url('https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=200&q=70');
+            background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&crop=entropy&w=200&q=70');
         }
 
         .insight-card:nth-child(4)::after {
@@ -3206,8 +3206,8 @@
                             <button type="button" data-hero-src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Court texture">
                                 <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=left&amp;w=320&amp;q=75" alt="">
                             </button>
-                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Game energy">
-                                <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=320&amp;q=75" alt="">
+                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=bottom&amp;w=900&amp;q=82" aria-label="Backboard detail">
+                                <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=faces&amp;w=320&amp;q=75" alt="">
                             </button>
                         </div>
                     </div>
@@ -3223,7 +3223,7 @@
                         <figcaption>Arena</figcaption>
                     </figure>
                     <figure>
-                        <img src="https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&amp;fit=crop&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=bottom&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
                         <figcaption>Hoops</figcaption>
                     </figure>
                     <figure>
@@ -4119,6 +4119,7 @@
         }
         document.getElementById('menuToggle')?.addEventListener('click', toggleMobileSidebar);
         document.getElementById('sidebarOverlay')?.addEventListener('click', closeMobileSidebar);
+        closeMobileSidebar();
 
         function showEmptyState(containerId, icon, message) {
             const container = document.getElementById(containerId);
