@@ -2888,7 +2888,7 @@
         }
 
         .insight-card:nth-child(1)::after {
-            background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=200&q=70');
+            background-image: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&crop=top&w=200&q=70');
         }
 
         .insight-card:nth-child(2)::after {
@@ -2896,7 +2896,7 @@
         }
 
         .insight-card:nth-child(3)::after {
-            background-image: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&crop=entropy&w=200&q=70');
+            background-image: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&crop=entropy&w=200&q=70');
         }
 
         .insight-card:nth-child(4)::after {
@@ -2954,7 +2954,7 @@
             content: '';
             position: absolute;
             inset: 0;
-            background: url('https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=900&q=60') right center / cover no-repeat;
+            background: url('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&crop=left&w=900&q=60') right center / cover no-repeat;
             opacity: 0.06;
             pointer-events: none;
             mask-image: linear-gradient(90deg, black 55%, transparent 100%);
@@ -3145,7 +3145,7 @@
             </li>
         </ul>
         <div class="sidebar-footer">
-            <div class="theme-toggle" id="themeToggle" onclick="toggleTheme()">
+            <div class="theme-toggle" id="themeToggle">
                 <div class="theme-toggle-label">
                     <span class="theme-icon theme-icon-dark">🌙</span>
                     <span class="theme-icon theme-icon-light">☀️</span>
@@ -3200,8 +3200,8 @@
                             <img id="dashboardHeroMainImg" src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;w=900&amp;q=82" alt="" width="900" height="563" fetchpriority="high" decoding="async">
                         </div>
                         <div class="dashboard-hero-thumbs">
-                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Arena spotlight">
-                                <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=320&amp;q=75" alt="">
+                            <button type="button" data-hero-src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=top&amp;w=900&amp;q=82" aria-label="Arena spotlight">
+                                <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=top&amp;w=320&amp;q=75" alt="">
                             </button>
                             <button type="button" data-hero-src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;w=900&amp;q=82" aria-label="Court texture">
                                 <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=left&amp;w=320&amp;q=75" alt="">
@@ -3219,7 +3219,7 @@
                         <figcaption>Courtside</figcaption>
                     </figure>
                     <figure>
-                        <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
+                        <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=left&amp;w=600&amp;h=260&amp;q=78" alt="" width="600" height="260" loading="lazy" decoding="async">
                         <figcaption>Arena</figcaption>
                     </figure>
                     <figure>
@@ -3276,7 +3276,7 @@
                                 </select>
                             </div>
                             <div class="context-toggle">
-                                <div class="context-toggle-header" onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'grid' : 'none'">
+                                <div class="context-toggle-header" id="contextToggleHeader">
                                     <h4>Optional Context</h4>
                                     <span style="color: var(--text-muted);">▼</span>
                                 </div>
@@ -3310,7 +3310,7 @@
                 <div id="dashboardEmptyState" class="dashboard-result-placeholder">
                     <div class="dashboard-result-placeholder-inner">
                         <div class="dashboard-result-placeholder-visual">
-                            <img src="https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&amp;fit=crop&amp;w=640&amp;q=80" alt="" width="640" height="360" loading="lazy" decoding="async">
+                            <img src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&amp;fit=crop&amp;crop=right&amp;w=640&amp;q=80" alt="" width="640" height="360" loading="lazy" decoding="async">
                         </div>
                         <div class="dashboard-result-placeholder-title">Start by comparing two teams</div>
                         <p>Your analysis will appear here with projected winner, confidence, and a full matchup breakdown.</p>
@@ -3407,7 +3407,7 @@
                     <button class="league-tab" data-league="nfl">NFL</button>
                     <button class="league-tab" data-league="nhl">NHL</button>
                 </div>
-                <button class="refresh-btn" onclick="loadScores()" title="Refresh scores">
+                <button class="refresh-btn" id="scoresRefreshBtn" title="Refresh scores">
                     🔄 Refresh
                 </button>
             </div>
@@ -3449,7 +3449,7 @@
                     <div class="picks-date" id="picksDate">Loading...</div>
                 </div>
                 <div class="picks-summary" id="picksSummary"></div>
-                <button class="refresh-btn" onclick="loadTodaysGames()" title="Refresh predictions">
+                <button class="refresh-btn" id="todaysRefreshBtn" title="Refresh predictions">
                     🔄 Refresh
                 </button>
             </div>
@@ -3624,8 +3624,31 @@
         });
 
         function showError(message) {
-            errorContainer.innerHTML = `<div class="error-message">Error: ${message}</div>`;
+            errorContainer.replaceChildren();
+            const error = document.createElement('div');
+            error.className = 'error-message';
+            error.textContent = `Error: ${message}`;
+            errorContainer.appendChild(error);
             errorContainer.classList.remove('hidden');
+        }
+
+        function renderRetryError(container, message, action) {
+            container.replaceChildren();
+            const wrapper = document.createElement('div');
+            wrapper.className = 'error-message';
+
+            const text = document.createElement('div');
+            text.textContent = `Error: ${message}`;
+            wrapper.appendChild(text);
+
+            const retryButton = document.createElement('button');
+            retryButton.className = 'error-retry';
+            retryButton.type = 'button';
+            retryButton.dataset.action = action;
+            retryButton.textContent = 'Retry';
+            wrapper.appendChild(retryButton);
+
+            container.appendChild(wrapper);
         }
 
         function getTeamInitials(name) {
@@ -3642,7 +3665,7 @@
             
             let html = `
                 <div class="prediction-factors">
-                    <div class="factors-header" onclick="this.classList.toggle('expanded'); this.nextElementSibling.classList.toggle('expanded');">
+                    <div class="factors-header" data-action="toggle-factors">
                         <div class="factors-title">
                             <span>📊</span>
                             <span>Prediction Factors</span>
@@ -4119,7 +4142,58 @@
         }
         document.getElementById('menuToggle')?.addEventListener('click', toggleMobileSidebar);
         document.getElementById('sidebarOverlay')?.addEventListener('click', closeMobileSidebar);
+        document.getElementById('themeToggle')?.addEventListener('click', toggleTheme);
+        document.getElementById('scoresRefreshBtn')?.addEventListener('click', () => loadScores());
+        document.getElementById('todaysRefreshBtn')?.addEventListener('click', () => loadTodaysGames());
+        document.getElementById('contextToggleHeader')?.addEventListener('click', (e) => {
+            const content = e.currentTarget.nextElementSibling;
+            if (!content) return;
+            content.style.display = content.style.display === 'none' ? 'grid' : 'none';
+        });
         closeMobileSidebar();
+
+        function handleActionClick(action) {
+            if (!action) return;
+            if (action === 'toggle-factors') {
+                return;
+            }
+
+            const actionHandlers = {
+                'retry-teams': () => loadTeams(document.getElementById('teamSearch')?.value.trim() || '', true),
+                'retry-matchups': () => loadMatchups(document.getElementById('matchupSearch')?.value.trim() || '', true),
+                'retry-history': () => loadHistory(document.getElementById('historySearch')?.value.trim() || '', true),
+                'retry-team-history': () => {
+                    const team = document.getElementById('teamHistorySearch')?.value.trim() || '';
+                    if (team) loadTeamGameHistory(team);
+                },
+                'retry-scores': () => loadScores(),
+                'retry-standings': () => loadStandings(),
+                'retry-injuries': () => loadInjuries(),
+                'retry-todays-games': () => loadTodaysGames(),
+                'retry-h2h': () => {
+                    const team1 = document.getElementById('h2hTeam1')?.value.trim() || '';
+                    const team2 = document.getElementById('h2hTeam2')?.value.trim() || '';
+                    if (team1 && team2) loadHeadToHead(team1, team2);
+                }
+            };
+
+            const handler = actionHandlers[action];
+            if (handler) handler();
+        }
+
+        document.addEventListener('click', (e) => {
+            const factorsHeader = e.target.closest('.factors-header[data-action="toggle-factors"]');
+            if (factorsHeader) {
+                factorsHeader.classList.toggle('expanded');
+                factorsHeader.nextElementSibling?.classList.toggle('expanded');
+                return;
+            }
+
+            const actionTarget = e.target.closest('[data-action]');
+            if (actionTarget) {
+                handleActionClick(actionTarget.dataset.action);
+            }
+        });
 
         function showEmptyState(containerId, icon, message) {
             const container = document.getElementById(containerId);
@@ -4213,12 +4287,7 @@
                 const data = await response.json();
                 displayTeams(data.teams, searchTerm);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadTeams(document.getElementById('teamSearch').value.trim(), true)">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-teams');
             }
         }
 
@@ -4327,12 +4396,7 @@
                 const data = await response.json();
                 displayMatchups(data.matchups);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadMatchups(document.getElementById('matchupSearch').value.trim(), true)">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-matchups');
             }
         }
 
@@ -4427,12 +4491,7 @@
                 const data = await response.json();
                 displayHistory(data.entries);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadHistory(document.getElementById('historySearch').value.trim(), true)">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-history');
             }
         }
 
@@ -4564,12 +4623,7 @@
                 // Team data is returned directly, not wrapped in .team
                 displayTeamGameHistory(teamData, scheduleData.schedule);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadTeamGameHistory(document.getElementById('teamHistorySearch').value.trim())">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-team-history');
             }
         }
 
@@ -4674,12 +4728,7 @@
                 const data = await response.json();
                 displayScores(data.games || []);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadScores()">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-scores');
             }
         }
 
@@ -4730,12 +4779,7 @@
                 const data = await response.json();
                 displayStandings(data.standings);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadStandings()">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-standings');
             }
         }
 
@@ -4834,12 +4878,7 @@
                 const data = await response.json();
                 displayInjuries(data.injuries || []);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadInjuries()">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-injuries');
             }
         }
 
@@ -4962,12 +5001,7 @@
                 
                 displayTodaysGames(data.games);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadTodaysGames()">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-todays-games');
             }
         }
 
@@ -5163,12 +5197,7 @@
                 const data = await response.json();
                 displayHeadToHead(data);
             } catch (error) {
-                container.innerHTML = `
-                    <div class="error-message">
-                        <div>Error: ${error.message}</div>
-                        <button class="error-retry" onclick="loadHeadToHead('${team1}', '${team2}')">Retry</button>
-                    </div>
-                `;
+                renderRetryError(container, error.message, 'retry-h2h');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Compare History';
