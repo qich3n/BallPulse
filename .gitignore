@@ -27,6 +27,9 @@ ENV/
 *.cache
 .pytest_cache/
 
+# Local comparison history (SQLite)
+.history/
+
 # Distribution / packaging
 dist/
 build/
