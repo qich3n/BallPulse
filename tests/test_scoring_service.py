@@ -97,6 +97,20 @@ def test_calculate_sentiment_tilt(scoring_service):
     assert tilt_empty == 0.0
 
 
+def test_sentiment_tilt_prefers_vader_compound(scoring_service):
+    """Compound score in summary should drive tilt (matches SentimentService output)."""
+    neutral_words = "Overall sentiment is neutral (compound score: 0.72). 60% positive."
+    tilt = scoring_service.calculate_sentiment_tilt(neutral_words)
+    assert tilt > 0.1
+
+    neg = "Overall sentiment is neutral (compound score: -0.35). 10% positive."
+    tilt_neg = scoring_service.calculate_sentiment_tilt(neg)
+    assert tilt_neg < -0.05
+
+    unavailable = "No Reddit data available - sentiment analysis unavailable."
+    assert scoring_service.calculate_sentiment_tilt(unavailable) == 0.0
+
+
 def test_calculate_injuries_penalty(scoring_service):
     """Test injuries penalty calculation"""
     # No injuries
@@ -158,6 +172,17 @@ def test_generate_score_breakdown(scoring_service):
     assert "Lakers" in breakdown
     assert "Warriors" in breakdown
     assert "Predicted final score" in breakdown
+
+
+def test_generate_score_breakdown_uses_ppg_when_present(scoring_service):
+    """Predicted totals should center near combined scoring when PPG is known."""
+    t1 = {"data_source": "nba_api", "points_avg": 120.0}
+    t2 = {"data_source": "nba_api", "points_avg": 110.0}
+    breakdown = scoring_service.generate_score_breakdown(
+        0.55, 0.45, "A", "B", team1_stats=t1, team2_stats=t2
+    )
+    assert "Predicted final score" in breakdown
+    assert "117" in breakdown and "113" in breakdown
 
 
 def test_generate_confidence_label(scoring_service):

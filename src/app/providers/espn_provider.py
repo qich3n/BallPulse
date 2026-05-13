@@ -474,8 +474,8 @@ class ESPNProvider:
 
         Returns:
             Dict with keys: shooting_pct, rebounding_avg, turnovers_avg,
-            net_rating_proxy, team_name, data_source
-            or None if stats cannot be fetched.
+            net_rating_proxy, assists_avg, win_pct, team_name, data_source,
+            and optionally points_avg (per-game points) when ESPN exposes it.
         """
         raw = self.get_team_statistics(team_identifier)
         if not raw:
@@ -524,7 +524,19 @@ class ESPNProvider:
         if win_pct and win_pct > 1.0:
             win_pct = win_pct / 100.0
 
-        return {
+        points_raw = (
+            raw.get("avgPoints")
+            or raw.get("pointsPerGame")
+            or raw.get("avgPointsPerGame")
+            or raw.get("points")
+        )
+        points_avg: float | None
+        try:
+            points_avg = float(points_raw) if points_raw is not None else None
+        except (TypeError, ValueError):
+            points_avg = None
+
+        out: Dict[str, Any] = {
             "shooting_pct": round(float(fg_pct), 3),
             "rebounding_avg": round(float(rebounds), 1),
             "turnovers_avg": round(float(turnovers), 1),
@@ -534,6 +546,9 @@ class ESPNProvider:
             "team_name": team_identifier,
             "data_source": "espn_api",
         }
+        if points_avg is not None and points_avg == points_avg:
+            out["points_avg"] = round(points_avg, 1)
+        return out
 
     # ==================== NEWS ====================
 

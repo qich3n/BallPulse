@@ -22,6 +22,8 @@ class ProsConsService:
         rebounding_avg = stats.get('rebounding_avg', 42.0)
         turnovers_avg = stats.get('turnovers_avg', 14.0)
         net_rating_proxy = stats.get('net_rating_proxy', 0.0)
+        win_pct = stats.get('win_pct') or 0.0
+        assists_avg = stats.get('assists_avg', 24.0)
         
         # Shooting percentage
         if shooting_pct >= 0.47:
@@ -46,6 +48,16 @@ class ProsConsService:
             pros.append("Strong positive point differential")
         elif net_rating_proxy >= 2:
             pros.append("Consistent scoring advantage")
+
+        if win_pct >= 0.62:
+            pros.append("Strong season record (win percentage)")
+        elif win_pct >= 0.52:
+            pros.append("Winning record on the season")
+
+        if assists_avg >= 28.0:
+            pros.append("Elite ball movement and assist volume")
+        elif assists_avg >= 25.0:
+            pros.append("Strong playmaking numbers")
         
         return pros
     
@@ -60,6 +72,8 @@ class ProsConsService:
         rebounding_avg = stats.get('rebounding_avg', 42.0)
         turnovers_avg = stats.get('turnovers_avg', 14.0)
         net_rating_proxy = stats.get('net_rating_proxy', 0.0)
+        win_pct = stats.get('win_pct') or 0.0
+        assists_avg = stats.get('assists_avg', 24.0)
         
         # Shooting percentage
         if shooting_pct < 0.43:
@@ -84,6 +98,16 @@ class ProsConsService:
             cons.append("Negative point differential indicates defensive issues")
         elif net_rating_proxy <= 0:
             cons.append("Marginal scoring differential")
+
+        if 0 < win_pct < 0.42:
+            cons.append("Struggling season record (win percentage)")
+        elif 0 < win_pct < 0.48:
+            cons.append("Below-average season win percentage")
+
+        if assists_avg < 22.0:
+            cons.append("Limited playmaking and assist volume")
+        elif assists_avg < 24.0:
+            cons.append("Room to improve ball movement")
         
         return cons
     

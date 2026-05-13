@@ -1,5 +1,6 @@
 import logging
 import math
+import re
 from typing import Dict, Any, Optional
 
 from ..config import cfg
@@ -80,6 +81,10 @@ class ScoringService:
         """
         Calculate sentiment tilt from sentiment summary text.
 
+        Prefers the VADER compound score embedded in the summary (when present)
+        so the tilt matches the same signal shown to users; falls back to
+        keyword heuristics for older or hand-written summaries.
+
         Returns:
             Tilt value (small adjustment to score)
         """
@@ -89,9 +94,22 @@ class ScoringService:
         sent_cfg = _scoring.get("sentiment", {})
         tilt_max = sent_cfg.get("tilt_max", 0.2)
         tilt_per = sent_cfg.get("tilt_per_word", 0.05)
+        compound_scale = float(sent_cfg.get("compound_tilt_scale", 1.0))
 
         summary_lower = sentiment_summary.lower()
-        
+        if "unavailable" in summary_lower or "no reddit data" in summary_lower:
+            return 0.0
+
+        compound_match = re.search(r"compound score[:\s]+([-]?\d+\.?\d*)", summary_lower)
+        if compound_match:
+            try:
+                compound = float(compound_match.group(1))
+            except ValueError:
+                compound = 0.0
+            compound = max(-1.0, min(1.0, compound))
+            raw_tilt = compound * tilt_max * compound_scale
+            return max(-tilt_max, min(tilt_max, raw_tilt))
+
         positive_words = sent_cfg.get("positive_words", ['positive', 'great', 'excellent', 'amazing', 'fantastic', 'strong', 'good'])
         positive_count = sum(1 for word in positive_words if word in summary_lower)
         
@@ -156,23 +174,42 @@ class ScoringService:
         score_diff = (team1_score - team2_score) * scale
         return self._sigmoid(score_diff, midpoint=0.0, steepness=steepness)
     
+    def _points_avg_for_breakdown(self, stats: Optional[Dict[str, Any]], default: float) -> float:
+        """PPG for predicted final score; uses league-style default when missing or placeholder."""
+        if not stats or stats.get("data_source") == "placeholder":
+            return default
+        ppg = stats.get("points_avg")
+        if ppg is None:
+            return default
+        try:
+            v = float(ppg)
+        except (TypeError, ValueError):
+            return default
+        return v if v == v else default
+
     def generate_score_breakdown(
         self,
         team1_score: float,
         team2_score: float,
         team1_name: str,
-        team2_name: str
+        team2_name: str,
+        team1_stats: Optional[Dict[str, Any]] = None,
+        team2_stats: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Generate human-readable score breakdown"""
         sb_cfg = _scoring.get("score_breakdown", {})
-        base_score = sb_cfg.get("base_score", 110)
+        base_score = float(sb_cfg.get("base_score", 110))
         margin_scale = sb_cfg.get("margin_scale", 20)
+
+        ppg1 = self._points_avg_for_breakdown(team1_stats, base_score)
+        ppg2 = self._points_avg_for_breakdown(team2_stats, base_score)
+        center = (ppg1 + ppg2) / 2.0
 
         score_diff = team1_score - team2_score
         score_margin = score_diff * margin_scale
         
-        team1_points = base_score + score_margin
-        team2_points = base_score - score_margin
+        team1_points = center + score_margin
+        team2_points = center - score_margin
         
         if team1_points < team2_points:
             team1_points, team2_points = team2_points, team1_points
@@ -241,7 +278,6 @@ class ScoringService:
             if not sentiment_str or 'unavailable' in sentiment_str.lower():
                 return {'score': 0.0, 'label': 'Neutral', 'positive_pct': 0, 'negative_pct': 0}
             
-            import re
             score_match = re.search(r'compound score[:\s]+([-]?\d+\.?\d*)', sentiment_str.lower())
             pos_match = re.search(r'(\d+)% positive', sentiment_str.lower())
             neg_match = re.search(r'(\d+)% negative', sentiment_str.lower())
@@ -332,9 +368,27 @@ class ScoringService:
         team2_score = self.calculate_team_score(team2_stats, team2_sentiment_tilt, team2_injuries_penalty)
         
         win_probability = self.calculate_win_probability(team1_score, team2_score)
+        wp_cfg = _scoring.get("win_probability", {})
+        ph1 = (team1_stats or {}).get("data_source") == "placeholder"
+        ph2 = (team2_stats or {}).get("data_source") == "placeholder"
+        if ph1 and ph2:
+            shrink = float(wp_cfg.get("both_placeholder_edge_shrink", 0.52))
+        elif ph1 or ph2:
+            shrink = float(wp_cfg.get("one_placeholder_edge_shrink", 0.82))
+        else:
+            shrink = 1.0
+        win_probability = 0.5 + (win_probability - 0.5) * shrink
+        lo = float(wp_cfg.get("probability_floor", 0.03))
+        hi = float(wp_cfg.get("probability_ceiling", 0.97))
+        win_probability = max(lo, min(hi, win_probability))
+
         predicted_winner = team1_name if win_probability > 0.5 else team2_name
         
-        score_breakdown = self.generate_score_breakdown(team1_score, team2_score, team1_name, team2_name)
+        score_breakdown = self.generate_score_breakdown(
+            team1_score, team2_score, team1_name, team2_name,
+            team1_stats=team1_stats,
+            team2_stats=team2_stats,
+        )
         confidence_label = self.generate_confidence_label(win_probability)
         
         stat_comparison = self._extract_stat_comparison(team1_stats, team2_stats)

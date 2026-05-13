@@ -43,7 +43,7 @@ A FastAPI application for analyzing and comparing NBA teams using statistics, se
    - API Docs: http://localhost:8000/docs
    - Health Check: http://localhost:8000/health
 
-For detailed setup instructions, see [RUN_LOCALLY.md](RUN_LOCALLY.md).
+From the repo root, `make run` starts the API with reload (requires a virtual environment and `make install`). For a containerized run, see [Running with Docker](#running-with-docker).
 
 ## API Usage Examples
 
@@ -189,7 +189,7 @@ BallPulse/
 ├── Makefile
 ├── .env.example
 ├── README.md
-└── RUN_LOCALLY.md
+└── docker-compose.yml
 ```
 
 ## Configuration
@@ -208,7 +208,11 @@ Optional environment variables:
 
 ## Troubleshooting
 
-For run-related issues (port in use, import errors, virtual environment, dependencies), see **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
+**Port already in use:** Stop the other process on port 8000, or run Uvicorn on another port, for example `uvicorn src.app.main:app --reload --port 8001`.
+
+**Import or module errors:** Activate your virtual environment, run `pip install -r requirements.txt` from the project root, and ensure commands are executed with the repo root as the current working directory (so `static/` and `config.json` resolve correctly).
+
+**Stale cache:** Run `make clean` to remove `.cache` and Python caches, or delete the diskcache directory configured in `config.json` if you use a custom path.
 
 ### NBA API Rate Limits
 
@@ -342,4 +346,11 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 
 ## Running with Docker
 
-For Docker and docker-compose setup, build steps, and troubleshooting, see **[RUN_LOCALLY.md](RUN_LOCALLY.md)**.
+Build and start the API (listens on port 8000):
+
+```bash
+docker compose build
+docker compose up
+```
+
+Then open http://localhost:8000/ and http://localhost:8000/docs. To pass secrets (for example Reddit credentials), copy `.env.example` to `.env`, fill in values, and uncomment the `env_file` section in `docker-compose.yml`.

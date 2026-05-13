@@ -33,12 +33,17 @@
     "win_probability": {
       "_description": "Sigmoid parameters for converting score difference → probability.",
       "score_diff_scale": 2.0,
-      "sigmoid_steepness": 3.0
+      "sigmoid_steepness": 3.0,
+      "both_placeholder_edge_shrink": 0.52,
+      "one_placeholder_edge_shrink": 0.82,
+      "probability_floor": 0.03,
+      "probability_ceiling": 0.97
     },
 
     "sentiment": {
       "_description": "Controls how Reddit sentiment tilts the team score.",
       "tilt_max":    0.2,
+      "compound_tilt_scale": 1.0,
       "tilt_per_word": 0.05,
       "positive_words": ["positive", "great", "excellent", "amazing", "fantastic", "strong", "good"],
       "negative_words": ["negative", "poor", "bad", "terrible", "weak", "concerns", "worries"]

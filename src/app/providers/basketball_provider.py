@@ -319,10 +319,15 @@ class BasketballProvider:
             else:
                 win_pct = 0.0
 
+            if "PTS" in recent.columns:
+                points_avg = float(recent["PTS"].mean())
+            else:
+                points_avg = None
+
             def _safe(val: float, default: float) -> float:
                 return val if val == val else default
 
-            return {
+            out = {
                 "last_10_games": num_games,
                 "shooting_pct": round(_safe(shooting_pct, 0.450), 3),
                 "rebounding_avg": round(_safe(rebounding_avg, 42.0), 1),
@@ -333,6 +338,9 @@ class BasketballProvider:
                 "team_name": team_name,
                 "data_source": "nba_api",
             }
+            if points_avg is not None and points_avg == points_avg:
+                out["points_avg"] = round(_safe(points_avg, _fb.get("pts_baseline", 108.0)), 1)
+            return out
 
         except Exception as e:
             self.logger.error("Error fetching NBA API stats for '%s': %s", team_name, e, exc_info=True)
