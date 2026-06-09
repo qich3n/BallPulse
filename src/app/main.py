@@ -4,10 +4,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from .routes import health, compare, teams, history, matchup, espn, games
-from .services.rate_limiter import limiter
+from .services.rate_limiter import limiter, rate_limit_exceeded_handler
 
 # Configure logging
 log_level = os.getenv('LOG_LEVEL', 'INFO').upper()
@@ -47,7 +46,7 @@ app = FastAPI(
 app.state.limiter = limiter
 
 # Add rate limit exceeded handler
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)
 
 # Include routers
 app.include_router(health.router)

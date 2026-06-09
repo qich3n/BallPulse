@@ -1,6 +1,6 @@
 import logging
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from ..services.cache_service import CacheService
 from ..services.scoring_service import ScoringService
@@ -245,7 +245,7 @@ async def _generate_analysis(request: CompareRequest) -> CompareResponse:
 
 @router.post("", response_model=CompareResponse)
 @limiter.limit(RATE_LIMITS["compare"])
-async def compare(request: Request, body: CompareRequest) -> CompareResponse:
+async def compare(request: Request, http_response: Response, body: CompareRequest) -> CompareResponse:
     """
     Compare endpoint with caching and full analysis
     
@@ -284,6 +284,12 @@ async def compare(request: Request, body: CompareRequest) -> CompareResponse:
     # Update request with normalized names for processing
     body.team1 = normalized_team1
     body.team2 = normalized_team2
+
+    if normalized_team1.lower() == normalized_team2.lower():
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot compare a team against itself. Please choose two different teams."
+        )
     
     # Extract date from context if available
     date = body.context.gameDate if body.context else None
@@ -299,6 +305,7 @@ async def compare(request: Request, body: CompareRequest) -> CompareResponse:
         
         if cached_response is not None:
             logger.info("Returning cached response for %s vs %s", normalized_team1, normalized_team2)
+            http_response.headers["X-Cache"] = "HIT"
             return cached_response
     except Exception as e:
         logger.warning("Cache check failed: %s, continuing without cache", e)
@@ -330,7 +337,8 @@ async def compare(request: Request, body: CompareRequest) -> CompareResponse:
             )
         except Exception as e:
             logger.warning("Failed to save to history: %s", e)
-        
+
+        http_response.headers["X-Cache"] = "MISS"
         return response
         
     except Exception as e:
