@@ -1,14 +1,24 @@
+import asyncio
 import logging
 from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
+from ..config import cfg
 from ..providers import basketball_provider
+from ..services.cache_service import CacheService
 from ..services.rate_limiter import limiter, RATE_LIMITS
 from nba_api.stats.static import teams
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/teams", tags=["teams"])
+
+_cache_cfg = cfg.get("cache", {})
+_teams_stats_ttl = _cache_cfg.get("team_score_ttl", 1800)
+_teams_stats_cache_key = "teams:nba:include_stats"
+_teams_stats_concurrency = 6
+
+cache_service = CacheService(default_ttl=_teams_stats_ttl)
 
 
 class TeamInfo(BaseModel):
@@ -29,6 +39,41 @@ class TeamListResponse(BaseModel):
     total: int
 
 
+def _build_team_info(team: Dict[str, Any], stats: Optional[Dict[str, Any]] = None) -> TeamInfo:
+    return TeamInfo(
+        id=team['id'],
+        full_name=team['full_name'],
+        abbreviation=team['abbreviation'],
+        nickname=team['nickname'],
+        city=team['city'],
+        conference=team.get('conference'),
+        division=team.get('division'),
+        stats=stats,
+    )
+
+
+async def _fetch_team_stats(team: Dict[str, Any], semaphore: asyncio.Semaphore) -> TeamInfo:
+    """Fetch stats for one team without blocking the event loop."""
+    async with semaphore:
+        try:
+            stats = await asyncio.to_thread(
+                basketball_provider.get_team_stats_summary,
+                team['full_name'],
+            )
+        except (ValueError, KeyError, TypeError) as e:
+            logger.warning("Failed to fetch stats for %s: %s", team['full_name'], e)
+            stats = None
+    return _build_team_info(team, stats)
+
+
+async def _build_teams_with_stats(nba_teams: List[Dict[str, Any]]) -> TeamListResponse:
+    semaphore = asyncio.Semaphore(_teams_stats_concurrency)
+    team_list = await asyncio.gather(
+        *(_fetch_team_stats(team, semaphore) for team in nba_teams)
+    )
+    return TeamListResponse(teams=list(team_list), total=len(team_list))
+
+
 @router.get("", response_model=TeamListResponse)
 @limiter.limit(RATE_LIMITS["teams"])
 async def get_teams(request: Request, include_stats: bool = False) -> TeamListResponse:
@@ -43,30 +88,27 @@ async def get_teams(request: Request, include_stats: bool = False) -> TeamListRe
         TeamListResponse with list of teams
     """
     try:
+        if include_stats:
+            cached = cache_service.get_by_key(_teams_stats_cache_key)
+            if cached is not None:
+                logger.info("Returning cached teams list with stats")
+                return TeamListResponse(**cached)
+
         nba_teams = teams.get_teams()
-        team_list = []
-        
-        for team in nba_teams:
-            team_info = TeamInfo(
-                id=team['id'],
-                full_name=team['full_name'],
-                abbreviation=team['abbreviation'],
-                nickname=team['nickname'],
-                city=team['city'],
-                conference=team.get('conference'),
-                division=team.get('division')
-            )
-            
-            # Optionally fetch stats
-            if include_stats:
-                try:
-                    stats = basketball_provider.get_team_stats_summary(team['full_name'])
-                    team_info.stats = stats
-                except (ValueError, KeyError, TypeError) as e:
-                    logger.warning("Failed to fetch stats for %s: %s", team['full_name'], e)
-            
-            team_list.append(team_info)
-        
+
+        if include_stats:
+            response = await _build_teams_with_stats(nba_teams)
+            try:
+                cache_service.set_by_key(
+                    _teams_stats_cache_key,
+                    response.model_dump(),
+                    ttl=_teams_stats_ttl,
+                )
+            except Exception as e:
+                logger.warning("Failed to cache teams list: %s", e)
+            return response
+
+        team_list = [_build_team_info(team) for team in nba_teams]
         return TeamListResponse(teams=team_list, total=len(team_list))
         
     except Exception as e:
@@ -110,25 +152,14 @@ async def get_team(team_name: str, include_stats: bool = True) -> TeamInfo:
                 detail=f"Team '{team_name}' not found"
             )
         
-        team_info = TeamInfo(
-            id=team['id'],
-            full_name=team['full_name'],
-            abbreviation=team['abbreviation'],
-            nickname=team['nickname'],
-            city=team['city'],
-            conference=team.get('conference'),
-            division=team.get('division')
-        )
-        
-        # Fetch stats if requested
+        stats = None
         if include_stats:
             try:
                 stats = basketball_provider.get_team_stats_summary(team['full_name'])
-                team_info.stats = stats
             except (ValueError, KeyError, TypeError) as e:
                 logger.warning("Failed to fetch stats for %s: %s", team['full_name'], e)
         
-        return team_info
+        return _build_team_info(team, stats)
         
     except HTTPException:
         raise

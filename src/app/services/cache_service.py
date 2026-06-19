@@ -193,3 +193,17 @@ class CacheService:
         logger.info("Cleared %d cache entries", count)
         return count
 
+    def get_by_key(self, key: str) -> Optional[Any]:
+        """Get a value by an arbitrary cache key."""
+        value = self.backend.get(key)
+        if value is not None:
+            logger.debug("Cache hit for key: %s", key)
+        return value
+
+    def set_by_key(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+        """Store a value under an arbitrary cache key."""
+        ttl = ttl if ttl is not None else self.default_ttl
+        result = self.backend.set(key, value, ttl=ttl)
+        logger.debug("Cached value for key: %s with TTL: %ss", key, ttl)
+        return result
+

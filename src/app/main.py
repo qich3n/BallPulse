@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, Response
+from starlette.middleware.gzip import GZipMiddleware
 from slowapi.errors import RateLimitExceeded
 from .routes import health, compare, teams, history, matchup, espn, games
 from .services.rate_limiter import limiter, rate_limit_exceeded_handler
@@ -41,6 +42,9 @@ app = FastAPI(
     description="AI-powered NBA matchup predictor with sentiment analysis",
     lifespan=lifespan
 )
+
+# Compress large JSON/HTML responses (frontend, compare payloads, team lists)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Add rate limiter to app state
 app.state.limiter = limiter
