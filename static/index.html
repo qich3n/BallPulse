@@ -444,6 +444,56 @@
             color: var(--text-muted);
         }
 
+        .team-autocomplete {
+            position: relative;
+            width: 100%;
+        }
+
+        .team-autocomplete-list {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            max-height: 260px;
+            overflow-y: auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: var(--shadow-md);
+            z-index: 200;
+            list-style: none;
+            margin: 0;
+            padding: 6px;
+        }
+
+        .team-autocomplete-list.hidden {
+            display: none;
+        }
+
+        .team-autocomplete-item {
+            padding: 10px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .team-autocomplete-item:hover,
+        .team-autocomplete-item.active {
+            background: var(--bg-hover);
+        }
+
+        .team-autocomplete-item-main {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .team-autocomplete-item-sub {
+            margin-top: 2px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
         .context-toggle {
             margin-top: 20px;
             padding: 20px;
@@ -2278,6 +2328,15 @@
             flex-wrap: wrap;
         }
 
+        .h2h-form .team-autocomplete {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .h2h-form .team-autocomplete .form-input {
+            width: 100%;
+        }
+
         .h2h-form .form-input {
             flex: 1;
             min-width: 200px;
@@ -3589,6 +3648,154 @@
         });
 
         const API_BASE_URL = window.location.origin;
+
+        // ==================== Team Autocomplete ====================
+        let nbaTeamsCache = null;
+
+        async function fetchNbaTeams() {
+            if (nbaTeamsCache) return nbaTeamsCache;
+            const response = await fetch(`${API_BASE_URL}/teams`);
+            if (!response.ok) {
+                throw new Error('Failed to load teams');
+            }
+            const data = await response.json();
+            nbaTeamsCache = data.teams
+                .map((team) => ({
+                    full_name: team.full_name,
+                    nickname: team.nickname,
+                    city: team.city,
+                    abbreviation: team.abbreviation,
+                    searchText: [
+                        team.full_name,
+                        team.nickname,
+                        team.city,
+                        team.abbreviation,
+                    ].join(' ').toLowerCase(),
+                }))
+                .sort((a, b) => a.full_name.localeCompare(b.full_name));
+            return nbaTeamsCache;
+        }
+
+        function filterTeams(query, teams) {
+            const normalized = query.trim().toLowerCase();
+            if (!normalized) {
+                return teams.slice(0, 8);
+            }
+            return teams
+                .filter((team) => team.searchText.includes(normalized))
+                .slice(0, 8);
+        }
+
+        function initTeamAutocomplete(input) {
+            if (!input || input.dataset.autocompleteInit === 'true') {
+                return;
+            }
+            input.dataset.autocompleteInit = 'true';
+            input.setAttribute('autocomplete', 'off');
+            input.setAttribute('role', 'combobox');
+            input.setAttribute('aria-autocomplete', 'list');
+            input.setAttribute('aria-expanded', 'false');
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'team-autocomplete';
+            input.parentNode.insertBefore(wrapper, input);
+            wrapper.appendChild(input);
+
+            const list = document.createElement('ul');
+            list.className = 'team-autocomplete-list hidden';
+            list.setAttribute('role', 'listbox');
+            wrapper.appendChild(list);
+
+            let activeIndex = -1;
+            let filtered = [];
+
+            function closeList() {
+                list.classList.add('hidden');
+                input.setAttribute('aria-expanded', 'false');
+                activeIndex = -1;
+            }
+
+            function renderList() {
+                list.replaceChildren();
+                filtered.forEach((team, index) => {
+                    const item = document.createElement('li');
+                    item.className = `team-autocomplete-item${index === activeIndex ? ' active' : ''}`;
+                    item.setAttribute('role', 'option');
+                    item.innerHTML = `
+                        <div class="team-autocomplete-item-main">${team.full_name}</div>
+                        <div class="team-autocomplete-item-sub">${team.nickname} · ${team.abbreviation}</div>
+                    `;
+                    item.addEventListener('mousedown', (event) => {
+                        event.preventDefault();
+                        selectTeam(team.full_name);
+                    });
+                    list.appendChild(item);
+                });
+            }
+
+            function selectTeam(name) {
+                input.value = name;
+                closeList();
+            }
+
+            async function updateSuggestions() {
+                try {
+                    const teams = await fetchNbaTeams();
+                    filtered = filterTeams(input.value, teams);
+                    activeIndex = filtered.length > 0 ? 0 : -1;
+                    renderList();
+                    if (filtered.length > 0) {
+                        list.classList.remove('hidden');
+                        input.setAttribute('aria-expanded', 'true');
+                    } else {
+                        closeList();
+                    }
+                } catch (error) {
+                    closeList();
+                }
+            }
+
+            input.addEventListener('input', updateSuggestions);
+            input.addEventListener('focus', updateSuggestions);
+            input.addEventListener('blur', () => {
+                setTimeout(closeList, 150);
+            });
+            input.addEventListener('keydown', (event) => {
+                const listOpen = !list.classList.contains('hidden');
+
+                if (!listOpen && event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    updateSuggestions();
+                    return;
+                }
+
+                if (!listOpen) {
+                    return;
+                }
+
+                if (event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    activeIndex = Math.min(activeIndex + 1, filtered.length - 1);
+                    renderList();
+                } else if (event.key === 'ArrowUp') {
+                    event.preventDefault();
+                    activeIndex = Math.max(activeIndex - 1, 0);
+                    renderList();
+                } else if (event.key === 'Enter' && activeIndex >= 0) {
+                    event.preventDefault();
+                    selectTeam(filtered[activeIndex].full_name);
+                } else if (event.key === 'Escape') {
+                    closeList();
+                }
+            });
+        }
+
+        ['team1', 'team2', 'h2hTeam1', 'h2hTeam2'].forEach((id) => {
+            initTeamAutocomplete(document.getElementById(id));
+        });
+        fetchNbaTeams().catch((error) => {
+            console.warn('Team autocomplete unavailable:', error.message);
+        });
         
         const form = document.getElementById('compareForm');
         const submitBtn = document.getElementById('submitBtn');
